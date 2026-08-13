@@ -24,3 +24,4 @@ I, Devu Sree Lakshmi Swetha, attest that this submission is my own individual wo
 | 2026-08-13 | HMAC-signed chain checkpoint implementation prepared for review. |
 | 2026-08-13 | Profile-isolated performance baseline implementation prepared for review. |
 | 2026-08-13 | Package-aligned success and exception test scenarios prepared for review. |
+| 2026-08-13 | JaCoCo coverage reporting and 85% build gate prepared for review. |

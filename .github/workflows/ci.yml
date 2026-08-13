@@ -22,10 +22,11 @@ jobs:
       - run: mvn --batch-mode verify
       - uses: actions/upload-artifact@v4
         with:
-          name: cyclonedx-sbom
+          name: build-reports
           path: |
             target/*.cdx.json
             target/classes/META-INF/sbom/*.json
+            target/site/jacoco/
 
   dependency-review:
     if: github.event_name == 'pull_request'

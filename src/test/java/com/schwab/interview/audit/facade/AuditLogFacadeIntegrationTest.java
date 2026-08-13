@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException
 import com.schwab.interview.audit.dto.AuditDtos.AppendEventRequest;
 import com.schwab.interview.audit.dto.AuditDtos.RedactionRequest;
 import com.schwab.interview.audit.entity.AuditEventEntity.Status;
+import com.schwab.interview.audit.repository.AuditChainStateRepository;
 import com.schwab.interview.audit.repository.AuditEventRepository;
 import com.schwab.interview.audit.support.AuditIntegrationTestSupport;
 import java.time.Instant;
@@ -18,6 +19,7 @@ import tools.jackson.databind.ObjectMapper;
 class AuditLogFacadeIntegrationTest extends AuditIntegrationTestSupport {
   @Autowired private AuditLogFacade facade;
   @Autowired private AuditEventRepository repository;
+  @Autowired private AuditChainStateRepository chainStateRepository;
   @Autowired private ObjectMapper json;
 
   @Nested
@@ -107,6 +109,21 @@ class AuditLogFacadeIntegrationTest extends AuditIntegrationTestSupport {
           .isEqualTo(Status.ARCHIVED);
       assertThat(facade.verify().intact()).isTrue();
     }
+
+    @Test
+    void filtersAndCursorPaginatesEvents() throws Exception {
+      append("READ", "alice", "ACCOUNT", "one", "{\"outcome\":\"ALLOW\"}");
+      var second = append("READ", "alice", "ACCOUNT", "two", "{\"outcome\":\"ALLOW\"}");
+      append("UPDATE", "bob", "ACCOUNT", "three", "{\"outcome\":\"ALLOW\"}");
+
+      var firstPage = facade.query("alice", null, null, null, null, null, null, 1);
+      var secondPage =
+          facade.query("alice", null, null, null, null, null, second.sequence() - 1, 1);
+
+      assertThat(firstPage.items()).singleElement().extracting("actorId").isEqualTo("alice");
+      assertThat(firstPage.nextCursor()).isNotBlank();
+      assertThat(secondPage.items()).singleElement().extracting("resourceId").isEqualTo("two");
+    }
   }
 
   @Nested
@@ -134,6 +151,22 @@ class AuditLogFacadeIntegrationTest extends AuditIntegrationTestSupport {
     }
 
     @Test
+    void detectsMissingAndInvalidChainCheckpointSignatures() throws Exception {
+      append("READ", "alice", "ACCOUNT", "one", "{\"outcome\":\"ALLOW\"}");
+      var state = chainStateRepository.findById(1L).orElseThrow();
+      var signature = state.getClass().getDeclaredField("headSignature");
+      signature.setAccessible(true);
+      signature.set(state, null);
+      chainStateRepository.saveAndFlush(state);
+      assertThat(facade.verify().firstViolation().type()).isEqualTo("CHAIN_HEAD_SIGNATURE_MISSING");
+
+      signature.set(state, "0".repeat(64));
+      chainStateRepository.saveAndFlush(state);
+      assertThat(facade.verify().firstViolation().type())
+          .isEqualTo("CHAIN_HEAD_SIGNATURE_MISMATCH");
+    }
+
+    @Test
     void rejectsMissingOrAmbiguousExportSelectors() {
       assertThatIllegalArgumentException().isThrownBy(() -> facade.export(null, null, null, null));
       assertThatIllegalArgumentException()
@@ -152,6 +185,29 @@ class AuditLogFacadeIntegrationTest extends AuditIntegrationTestSupport {
           .isThrownBy(() -> facade.clientAccountAccessReport(" ", null, null));
       assertThatIllegalArgumentException()
           .isThrownBy(() -> facade.query(null, null, null, null, null, null, null, 101));
+    }
+
+    @Test
+    void rejectsInvalidSensitivePathsAndRedactionRequests() throws Exception {
+      assertThatIllegalArgumentException()
+          .isThrownBy(
+              () ->
+                  facade.append(
+                      new AppendEventRequest(
+                          "READ",
+                          "alice",
+                          "ACCOUNT",
+                          "one",
+                          json.readTree("{\"secret\":\"x\"}"),
+                          null,
+                          List.of("secret", "secret"))));
+      var event = append("READ", "alice", "ACCOUNT", "one", "{\"public\":\"value\"}");
+      assertThatIllegalArgumentException()
+          .isThrownBy(
+              () ->
+                  facade.redact(
+                      event.eventId(),
+                      new RedactionRequest(List.of("missing"), "privacy", "request")));
     }
   }
 

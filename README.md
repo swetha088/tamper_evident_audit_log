@@ -35,6 +35,8 @@ mvn spring-boot:run
 
 `mvn test` automatically runs every success and exception scenario. For an IDE launch that explicitly runs the full test set, run `AuditApplicationTestSuite`.
 
+`mvn verify` enforces a JaCoCo bundle line-coverage threshold of **85%**. The local HTML report is written to `target/site/jacoco/index.html`; CI uploads it with the build reports artifact.
+
 The service listens on `http://localhost:8080` and persists a local H2 database under `data/`. The H2 URL runs in MySQL compatibility mode to reduce local/production differences.
 Flyway owns the database schema. A first run creates the schema from `src/main/resources/db/migration`; an existing local schema is baselined at version 1 so it can be adopted without destructive changes.
 
@@ -64,7 +66,7 @@ mvn spring-boot:run "-Dspring-boot.run.profiles=performance"
 
 Override the count with `--audit.performance.event-count=5000` when invoking the application.
 
-`mvn verify` enforces Java/Maven versions, checks Google Java Format, runs tests, and produces a CycloneDX SBOM under `target/`. GitHub Actions repeats that gate for pushes and pull requests; pull requests also receive GitHub dependency review and Dependabot updates Maven and GitHub Action dependencies weekly.
+`mvn verify` enforces Java/Maven versions, code formatting, the 85% coverage gate, tests, and a CycloneDX SBOM under `target/`. GitHub Actions repeats that gate for pushes and pull requests; pull requests also receive GitHub dependency review and Dependabot updates Maven and GitHub Action dependencies weekly.
 
 Example write request:
 
