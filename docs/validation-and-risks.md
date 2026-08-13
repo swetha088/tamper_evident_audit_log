@@ -36,4 +36,4 @@
 
 ## Current validation evidence
 
-On 2026-08-13, `mvn verify` passed 35 reported Java 21 tests with zero failures/errors, one intentionally skipped MySQL-only class, and 95.32% JaCoCo line coverage. Coverage includes direct persisted modification, tail deletion, redaction/archival, downloaded-bundle verification, compliance reporting, local HTTP access, production authentication/authorization, timestamp precision, and the non-web performance profile. Re-run `mvn verify` before each commit or handoff.
+On 2026-08-13, `mvn verify` passed 37 reported Java 21 tests with zero failures/errors, one intentionally skipped MySQL-only class, and 93.71% JaCoCo line coverage. Coverage includes direct persisted modification, tail deletion, lifecycle-evidence signing, redaction/archival, downloaded-bundle verification, compliance reporting, local HTTP access, production authentication/authorization, timestamp precision, and the non-web performance profile. Re-run `mvn verify` before each commit or handoff.

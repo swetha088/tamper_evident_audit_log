@@ -11,7 +11,7 @@ mvn verify
 
 ## Current local evidence
 
-On 2026-08-13, `mvn verify` reported 35 tests with zero failures/errors and one intentionally skipped MySQL-only test class. JaCoCo reported 570 covered and 28 missed lines: **95.32% line coverage**.
+On 2026-08-13, `mvn verify` reported 37 tests with zero failures/errors and one intentionally skipped MySQL-only test class. JaCoCo reported 655 covered and 44 missed lines: **93.71% line coverage**.
 
 | Assignment scenario | Validated behavior |
 | --- | --- |
