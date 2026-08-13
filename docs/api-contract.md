@@ -47,13 +47,13 @@ When broken, `firstViolation` includes at least the sequence/event identifier an
 
 Exports a self-contained, verifiable bundle. Exactly one of `actorId` or `resourceId` is required. An optional time range may narrow results.
 
-The bundle includes selected records, their sequence/hash fields, a canonical protected payload representation for hash recomputation, chain context sufficient to establish their original positions, export format version, and the verification algorithm/canonicalization version.
+The bundle includes selected records, their sequence/hash fields, a canonical protected payload representation, the commitment material required to derive that representation from the displayed payload, chain context sufficient to establish their original positions, export format version, and the verification algorithm/canonicalization version.
 
 The prototype includes `chainWitnesses` for every row in the chain and canonical protected representations for selected records. This favors independent verification and clarity over export size; it is not an efficient production design for long histories.
 
 ## `POST /audit/export/verify`
 
-Validates a previously downloaded export bundle without reading any audit repository data. It checks the declared export/hash versions, ordered full-chain witnesses, selected-record membership in that witness set, and recomputed SHA-256 content hashes from each selected record's protected canonical representation. An independent recipient can use `AuditExportVerifier` in a separate Java process or submit the bundle to this endpoint on an isolated verifier instance. The bundle is tamper-evident; a production non-repudiation workflow would additionally sign the export with an externally managed asymmetric key.
+Validates a previously downloaded export bundle without reading any audit repository data. It checks the declared export/hash versions, ordered full-chain witnesses, selected-record membership in that witness set, commitment-backed equivalence of the displayed and protected payload representations, and recomputed SHA-256 content hashes. An independent recipient can use `AuditExportVerifier` in a separate Java process or submit the bundle to this endpoint on an isolated verifier instance. The bundle is tamper-evident; a production non-repudiation workflow would additionally sign the export with an externally managed asymmetric key.
 
 ## `GET /audit/reports/client-account-access`
 

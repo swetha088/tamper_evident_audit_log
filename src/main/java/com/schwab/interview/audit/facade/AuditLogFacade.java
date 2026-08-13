@@ -402,6 +402,7 @@ public class AuditLogFacade {
         event.getRecordedAt(),
         payload,
         protect(payload, values),
+        commitments,
         values.properties().stream().map(Map.Entry::getKey).sorted().toList(),
         event.getPreviousHash(),
         event.getContentHash());

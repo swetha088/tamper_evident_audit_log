@@ -63,6 +63,7 @@ public final class AuditDtos {
       Instant recordedAt,
       JsonNode payload,
       JsonNode protectedPayload,
+      JsonNode commitments,
       List<String> sensitivePaths,
       String previousHash,
       String contentHash) {}

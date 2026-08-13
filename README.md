@@ -83,7 +83,7 @@ Invoke-RestMethod -Method Post http://localhost:8080/audit/events -ContentType '
 
 Then inspect integrity with `Invoke-RestMethod http://localhost:8080/audit/verify`.
 
-To validate a saved export without querying the audit database, submit the saved JSON bundle to `POST /audit/export/verify`, or use `AuditExportVerifier` in a separate Java process. The verifier checks the export format, ordered chain witnesses, selected-record membership, and recomputed protected content hashes.
+To validate a saved export without querying the audit database, submit the saved JSON bundle to `POST /audit/export/verify`, or use `AuditExportVerifier` in a separate Java process. The verifier checks the export format, ordered chain witnesses, selected-record membership, commitment-backed consistency between the displayed and protected payloads, and recomputed content hashes.
 
 ## Repository conventions
 

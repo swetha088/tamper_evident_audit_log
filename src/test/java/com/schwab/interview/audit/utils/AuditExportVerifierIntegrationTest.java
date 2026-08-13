@@ -35,7 +35,9 @@ class AuditExportVerifierIntegrationTest extends AuditIntegrationTestSupport {
       ExportBundleResponse downloadedBundle =
           json.readValue(json.writeValueAsString(bundle), ExportBundleResponse.class);
 
-      assertThat(verifier.verify(downloadedBundle).intact()).isTrue();
+      var result = verifier.verify(downloadedBundle);
+      assertThat(result.firstViolation()).isNull();
+      assertThat(result.intact()).isTrue();
     }
   }
 
@@ -66,6 +68,7 @@ class AuditExportVerifierIntegrationTest extends AuditIntegrationTestSupport {
               original.recordedAt(),
               original.payload(),
               original.protectedPayload(),
+              original.commitments(),
               original.sensitivePaths(),
               original.previousHash(),
               original.contentHash());
@@ -107,6 +110,50 @@ class AuditExportVerifierIntegrationTest extends AuditIntegrationTestSupport {
 
       assertThat(verifier.verify(tampered).firstViolation().type())
           .isEqualTo("EXPORT_CHAIN_WITNESS_MISMATCH");
+    }
+
+    @Test
+    void detectsAChangedDisplayedPayloadEvenWhenTheProtectedPayloadIsUntouched() throws Exception {
+      facade.append(
+          new AppendEventRequest(
+              "READ",
+              "alice",
+              "ACCOUNT",
+              "one",
+              json.readTree("{\"outcome\":\"ALLOW\",\"secret\":\"value\"}"),
+              null,
+              List.of("secret")));
+      ExportBundleResponse bundle = facade.export("alice", null, null, null);
+      ExportRecord original = bundle.records().getFirst();
+      ExportRecord changed =
+          new ExportRecord(
+              original.sequence(),
+              original.eventId(),
+              original.eventType(),
+              original.actorId(),
+              original.resourceType(),
+              original.resourceId(),
+              original.occurredAt(),
+              original.recordedAt(),
+              json.readTree("{\"outcome\":\"DENY\",\"secret\":\"value\"}"),
+              original.protectedPayload(),
+              original.commitments(),
+              original.sensitivePaths(),
+              original.previousHash(),
+              original.contentHash());
+      ExportBundleResponse tampered =
+          new ExportBundleResponse(
+              bundle.formatVersion(),
+              bundle.hashAlgorithm(),
+              bundle.hashVersion(),
+              bundle.exportedAt(),
+              bundle.criteria(),
+              List.of(changed),
+              bundle.chainWitnesses(),
+              bundle.verification());
+
+      assertThat(verifier.verify(tampered).firstViolation().type())
+          .isEqualTo("EXPORT_PAYLOAD_MISMATCH");
     }
   }
 }

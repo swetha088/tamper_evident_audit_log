@@ -7,13 +7,16 @@ import com.schwab.interview.audit.dto.AuditDtos.VerificationResponse;
 import com.schwab.interview.audit.dto.AuditDtos.ViolationResponse;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.SerializationFeature;
+import tools.jackson.databind.node.ObjectNode;
 
 /**
  * Verifies an export bundle without querying the audit database. Consumers can use this component
@@ -76,11 +79,85 @@ public class AuditExportVerifier {
             "EXPORT_RECORD_WITNESS_MISMATCH",
             checked);
       }
+      if (!payloadMatchesProtectedRepresentation(record)) {
+        return broken(record.sequence(), record.eventId(), "EXPORT_PAYLOAD_MISMATCH", checked);
+      }
       if (!HashUtils.sha256(canonical(hashInput(record))).equals(record.contentHash())) {
         return broken(record.sequence(), record.eventId(), "EXPORT_CONTENT_HASH_MISMATCH", checked);
       }
     }
     return new VerificationResponse(true, checked, null);
+  }
+
+  private boolean payloadMatchesProtectedRepresentation(ExportRecord record) {
+    if (record.payload() == null
+        || !record.payload().isObject()
+        || record.protectedPayload() == null
+        || !record.protectedPayload().isObject()
+        || record.commitments() == null
+        || !record.commitments().isObject()) {
+      return false;
+    }
+    JsonNode salt = record.commitments().get("salt");
+    JsonNode valuesNode = record.commitments().get("values");
+    if (salt == null || !salt.isTextual() || !(valuesNode instanceof ObjectNode values)) {
+      return false;
+    }
+    List<String> paths = record.sensitivePaths() == null ? List.of() : record.sensitivePaths();
+    if (new HashSet<>(paths).size() != paths.size()
+        || !new HashSet<>(paths)
+            .equals(
+                values.properties().stream()
+                    .map(Map.Entry::getKey)
+                    .collect(java.util.stream.Collectors.toSet()))) {
+      return false;
+    }
+    JsonNode protectedPayload = record.payload().deepCopy();
+    for (String path : paths) {
+      JsonNode commitment = values.get(path);
+      JsonNode original;
+      try {
+        original = path(record.payload(), path);
+      } catch (IllegalArgumentException exception) {
+        return false;
+      }
+      if (commitment == null || !commitment.isTextual()) {
+        return false;
+      }
+      JsonNode protectedValue = json.createObjectNode().put("commitment", commitment.asText());
+      if (AuditConstants.REDACTED_VALUE.equals(original.asText())) {
+        protectedPayload = replace(protectedPayload, path, protectedValue);
+        continue;
+      }
+      if (!HashUtils.sha256(salt.asText() + ":" + canonical(original))
+          .equals(commitment.asText())) {
+        return false;
+      }
+      protectedPayload = replace(protectedPayload, path, protectedValue);
+    }
+    return protectedPayload.equals(record.protectedPayload());
+  }
+
+  private JsonNode path(JsonNode node, String path) {
+    JsonNode value = node.at("/" + path.replace(".", "/"));
+    if (value.isMissingNode()) {
+      throw new IllegalArgumentException("Sensitive path does not exist: " + path);
+    }
+    return value;
+  }
+
+  private JsonNode replace(JsonNode node, String path, JsonNode value) {
+    ObjectNode copy = (ObjectNode) node.deepCopy();
+    ObjectNode parent = copy;
+    String[] segments = path.split("\\.");
+    for (int index = 0; index < segments.length - 1; index++) {
+      if (!(parent.get(segments[index]) instanceof ObjectNode child)) {
+        throw new IllegalArgumentException("Sensitive path does not exist: " + path);
+      }
+      parent = child;
+    }
+    parent.set(segments[segments.length - 1], value);
+    return copy;
   }
 
   private Map<String, Object> hashInput(ExportRecord record) {
