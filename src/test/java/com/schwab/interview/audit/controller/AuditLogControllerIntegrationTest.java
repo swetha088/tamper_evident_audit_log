@@ -82,6 +82,22 @@ class AuditLogControllerIntegrationTest extends AuditIntegrationTestSupport {
           .andExpect(status().isOk())
           .andExpect(jsonPath("$.archived").value(1));
     }
+
+    @Test
+    void verifiesADownloadedExportOverHttp() throws Exception {
+      facade.append(
+          new AppendEventRequest(
+              "READ", "alice", "ACCOUNT", "one", json.readTree("{}"), null, null));
+      var bundle = facade.export("alice", null, null, null);
+
+      mockMvc
+          .perform(
+              post("/audit/export/verify")
+                  .contentType("application/json")
+                  .content(json.writeValueAsString(bundle)))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.intact").value(true));
+    }
   }
 
   @Nested

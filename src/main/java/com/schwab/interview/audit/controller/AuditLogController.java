@@ -10,6 +10,7 @@ import com.schwab.interview.audit.dto.AuditDtos.RetentionRequest;
 import com.schwab.interview.audit.dto.AuditDtos.VerificationResponse;
 import com.schwab.interview.audit.facade.AuditLogFacade;
 import com.schwab.interview.audit.utils.AuditConstants;
+import com.schwab.interview.audit.utils.AuditExportVerifier;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -31,9 +32,11 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "Audit Log")
 public class AuditLogController {
   private final AuditLogFacade facade;
+  private final AuditExportVerifier exportVerifier;
 
-  public AuditLogController(AuditLogFacade facade) {
+  public AuditLogController(AuditLogFacade facade, AuditExportVerifier exportVerifier) {
     this.facade = facade;
+    this.exportVerifier = exportVerifier;
   }
 
   @PostMapping(AuditConstants.EVENTS_PATH)
@@ -72,6 +75,12 @@ public class AuditLogController {
       @RequestParam(required = false) Instant from,
       @RequestParam(required = false) Instant to) {
     return facade.export(actorId, resourceId, from, to);
+  }
+
+  @PostMapping("/export/verify")
+  @Operation(summary = "Verify an exported bundle without accessing the audit database")
+  public VerificationResponse verifyExport(@RequestBody ExportBundleResponse bundle) {
+    return exportVerifier.verify(bundle);
   }
 
   @GetMapping(AuditConstants.CLIENT_ACCOUNT_ACCESS_REPORT_PATH)

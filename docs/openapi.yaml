@@ -46,6 +46,16 @@ paths:
       responses:
         '200': { description: Verifiable export bundle }
         '400': { $ref: '#/components/responses/InvalidRequest' }
+  /audit/export/verify:
+    post:
+      summary: Verify a self-contained audit export bundle without database access
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ExportBundle' }
+      responses:
+        '200': { description: Offline export verification result, content: { application/json: { schema: { $ref: '#/components/schemas/VerificationResult' } } } }
   /audit/events/{eventId}/redactions:
     post:
       summary: Redact previously declared sensitive payload paths
@@ -134,6 +144,15 @@ components:
       properties:
         items: { type: array, items: { $ref: '#/components/schemas/AuditEvent' } }
         nextCursor: { type: [string, 'null'] }
+    ExportBundle:
+      type: object
+      required: [formatVersion, hashAlgorithm, hashVersion, records, chainWitnesses]
+      properties:
+        formatVersion: { type: string, const: audit-export-v1 }
+        hashAlgorithm: { type: string, const: SHA-256 }
+        hashVersion: { type: string, const: v1 }
+        records: { type: array }
+        chainWitnesses: { type: array }
     VerificationResult:
       type: object
       required: [intact, recordsChecked, firstViolation]

@@ -51,6 +51,10 @@ The bundle includes selected records, their sequence/hash fields, a canonical pr
 
 The prototype includes `chainWitnesses` for every row in the chain and canonical protected representations for selected records. This favors independent verification and clarity over export size; it is not an efficient production design for long histories.
 
+## `POST /audit/export/verify`
+
+Validates a previously downloaded export bundle without reading any audit repository data. It checks the declared export/hash versions, ordered full-chain witnesses, selected-record membership in that witness set, and recomputed SHA-256 content hashes from each selected record's protected canonical representation. An independent recipient can use `AuditExportVerifier` in a separate Java process or submit the bundle to this endpoint on an isolated verifier instance. The bundle is tamper-evident; a production non-repudiation workflow would additionally sign the export with an externally managed asymmetric key.
+
 ## `GET /audit/reports/client-account-access`
 
 Returns only `CLIENT_DATA_READ` events whose `resourceType` is `CLIENT_ACCOUNT` and whose `resourceId` equals the required `clientAccountId`. Optional `from` and `to` filters apply to server-assigned `recordedAt` values. The response includes the matching events and a full-chain verification result. This endpoint implements the stated prototype assumption; it does not infer access from unrelated event types or replace regulatory reporting workflow controls.
