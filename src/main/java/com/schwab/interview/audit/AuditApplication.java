@@ -8,7 +8,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 @SpringBootApplication
 @EnableConfigurationProperties(AuditRetentionProperties.class)
 public class AuditApplication {
-    public static void main(String[] args) {
-        SpringApplication.run(AuditApplication.class, args);
-    }
+  public static void main(String[] args) {
+    SpringApplication.run(AuditApplication.class, args);
+  }
 }

@@ -5,13 +5,13 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "audit.retention")
 public class AuditRetentionProperties {
-    private Duration defaultWindow = Duration.ofDays(90);
+  private Duration defaultWindow = Duration.ofDays(90);
 
-    public Duration getDefaultWindow() {
-        return defaultWindow;
-    }
+  public Duration getDefaultWindow() {
+    return defaultWindow;
+  }
 
-    public void setDefaultWindow(Duration defaultWindow) {
-        this.defaultWindow = defaultWindow;
-    }
+  public void setDefaultWindow(Duration defaultWindow) {
+    this.defaultWindow = defaultWindow;
+  }
 }

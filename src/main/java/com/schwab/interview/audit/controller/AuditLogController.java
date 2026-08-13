@@ -30,64 +30,67 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping(AuditConstants.API_ROOT)
 @Tag(name = "Audit Log")
 public class AuditLogController {
-    private final AuditLogFacade facade;
+  private final AuditLogFacade facade;
 
-    public AuditLogController(AuditLogFacade facade) {
-        this.facade = facade;
-    }
+  public AuditLogController(AuditLogFacade facade) {
+    this.facade = facade;
+  }
 
-    @PostMapping(AuditConstants.EVENTS_PATH)
-    @ResponseStatus(HttpStatus.CREATED)
-    @Operation(summary = "Append an audit event")
-    public EventResponse append(@Valid @RequestBody AppendEventRequest request) {
-        return facade.append(request);
-    }
+  @PostMapping(AuditConstants.EVENTS_PATH)
+  @ResponseStatus(HttpStatus.CREATED)
+  @Operation(summary = "Append an audit event")
+  public EventResponse append(@Valid @RequestBody AppendEventRequest request) {
+    return facade.append(request);
+  }
 
-    @GetMapping(AuditConstants.EVENTS_PATH)
-    @Operation(summary = "Query audit events")
-    public EventPageResponse query(@RequestParam(required = false) String actorId,
-                                   @RequestParam(required = false) String resourceType,
-                                   @RequestParam(required = false) String resourceId,
-                                   @RequestParam(required = false) String eventType,
-                                   @RequestParam(required = false) Instant from,
-                                   @RequestParam(required = false) Instant to,
-                                   @RequestParam(required = false) Long cursor,
-                                   @RequestParam(defaultValue = "50") int limit) {
-        return facade.query(actorId, resourceType, resourceId, eventType, from, to, cursor, limit);
-    }
+  @GetMapping(AuditConstants.EVENTS_PATH)
+  @Operation(summary = "Query audit events")
+  public EventPageResponse query(
+      @RequestParam(required = false) String actorId,
+      @RequestParam(required = false) String resourceType,
+      @RequestParam(required = false) String resourceId,
+      @RequestParam(required = false) String eventType,
+      @RequestParam(required = false) Instant from,
+      @RequestParam(required = false) Instant to,
+      @RequestParam(required = false) Long cursor,
+      @RequestParam(defaultValue = "50") int limit) {
+    return facade.query(actorId, resourceType, resourceId, eventType, from, to, cursor, limit);
+  }
 
-    @GetMapping(AuditConstants.VERIFY_PATH)
-    @Operation(summary = "Verify the full hash chain")
-    public VerificationResponse verify() {
-        return facade.verify();
-    }
+  @GetMapping(AuditConstants.VERIFY_PATH)
+  @Operation(summary = "Verify the full hash chain")
+  public VerificationResponse verify() {
+    return facade.verify();
+  }
 
-    @GetMapping(AuditConstants.EXPORT_PATH)
-    @Operation(summary = "Export records with a verifiable full-chain witness")
-    @ApiResponse(responseCode = "200", description = "Verifiable export bundle")
-    public ExportBundleResponse export(@RequestParam(required = false) String actorId,
-                                       @RequestParam(required = false) String resourceId,
-                                       @RequestParam(required = false) Instant from,
-                                       @RequestParam(required = false) Instant to) {
-        return facade.export(actorId, resourceId, from, to);
-    }
+  @GetMapping(AuditConstants.EXPORT_PATH)
+  @Operation(summary = "Export records with a verifiable full-chain witness")
+  @ApiResponse(responseCode = "200", description = "Verifiable export bundle")
+  public ExportBundleResponse export(
+      @RequestParam(required = false) String actorId,
+      @RequestParam(required = false) String resourceId,
+      @RequestParam(required = false) Instant from,
+      @RequestParam(required = false) Instant to) {
+    return facade.export(actorId, resourceId, from, to);
+  }
 
-    @GetMapping(AuditConstants.CLIENT_ACCOUNT_ACCESS_REPORT_PATH)
-    @Operation(summary = "Report client-account data access events")
-    public ClientAccountAccessReport clientAccountAccessReport(@RequestParam String clientAccountId,
-                                                                @RequestParam(required = false) Instant from,
-                                                                @RequestParam(required = false) Instant to) {
-        return facade.clientAccountAccessReport(clientAccountId, from, to);
-    }
+  @GetMapping(AuditConstants.CLIENT_ACCOUNT_ACCESS_REPORT_PATH)
+  @Operation(summary = "Report client-account data access events")
+  public ClientAccountAccessReport clientAccountAccessReport(
+      @RequestParam String clientAccountId,
+      @RequestParam(required = false) Instant from,
+      @RequestParam(required = false) Instant to) {
+    return facade.clientAccountAccessReport(clientAccountId, from, to);
+  }
 
-    @PostMapping("/events/{eventId}/redactions")
-    public EventResponse redact(@PathVariable String eventId,
-                                @Valid @RequestBody RedactionRequest request) {
-        return facade.redact(eventId, request);
-    }
+  @PostMapping("/events/{eventId}/redactions")
+  public EventResponse redact(
+      @PathVariable String eventId, @Valid @RequestBody RedactionRequest request) {
+    return facade.redact(eventId, request);
+  }
 
-    @PostMapping("/retention/run")
-    public Map<String, Object> archive(@Valid @RequestBody RetentionRequest request) {
-        return facade.archive(request.cutoff(), request.policy());
-    }
+  @PostMapping("/retention/run")
+  public Map<String, Object> archive(@Valid @RequestBody RetentionRequest request) {
+    return facade.archive(request.cutoff(), request.policy());
+  }
 }

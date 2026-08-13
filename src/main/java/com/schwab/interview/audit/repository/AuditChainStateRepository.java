@@ -8,7 +8,9 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 
 public interface AuditChainStateRepository extends JpaRepository<AuditChainStateEntity, Long> {
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select state from AuditChainStateEntity state where state.id = " + AuditChainStateEntity.SINGLETON_ID)
-    Optional<AuditChainStateEntity> findSingletonForUpdate();
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query(
+      "select state from AuditChainStateEntity state where state.id = "
+          + AuditChainStateEntity.SINGLETON_ID)
+  Optional<AuditChainStateEntity> findSingletonForUpdate();
 }
