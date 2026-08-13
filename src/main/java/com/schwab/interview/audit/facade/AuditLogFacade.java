@@ -109,6 +109,7 @@ public class AuditLogFacade {
                 canonical(commitments),
                 previous));
     event.setContentHash(HashUtils.sha256(canonical(hashInput(event, request.payload(), values))));
+    signLifecycle(event);
     String signature =
         checkpointSigner.sign(event.getSequence(), event.getEventId(), event.getContentHash());
     AuditChainStateEntity chainState =
@@ -237,6 +238,15 @@ public class AuditLogFacade {
           .equals(event.getContentHash())) {
         return broken(checked, event, "CONTENT_HASH_MISMATCH");
       }
+      if (event.getLifecycleSignature() == null
+          || event.getLifecycleSignatureKeyId() == null
+          || !event.getLifecycleSignatureKeyId().equals(checkpointSigner.keyId())) {
+        return broken(checked, event, "LIFECYCLE_SIGNATURE_MISSING");
+      }
+      if (!checkpointSigner.verifiesLifecycle(
+          lifecycleInput(event), event.getLifecycleSignature())) {
+        return broken(checked, event, "LIFECYCLE_SIGNATURE_MISMATCH");
+      }
       previous = event.getContentHash();
       checked++;
       last = event;
@@ -306,8 +316,10 @@ public class AuditLogFacade {
     ObjectNode certificate = json.createObjectNode();
     certificate.put("actorId", request.actorId());
     certificate.put("reason", request.reason());
+    certificate.set("paths", json.valueToTree(request.paths().stream().sorted().toList()));
     certificate.put("redactedAt", Instant.now().toString());
     event.redact(canonical(payload), canonical(certificate));
+    signLifecycle(event);
     return response(event);
   }
 
@@ -319,7 +331,11 @@ public class AuditLogFacade {
     List<AuditEventEntity> records =
         repository.findByRecordedAtBeforeAndStatusNot(
             resolvedCutoff, AuditEventEntity.Status.ARCHIVED);
-    records.forEach(event -> event.archive(Instant.now(), resolvedPolicy));
+    records.forEach(
+        event -> {
+          event.archive(Instant.now(), resolvedPolicy);
+          signLifecycle(event);
+        });
     return Map.of("archived", records.size(), "cutoff", resolvedCutoff, "policy", resolvedPolicy);
   }
 
@@ -430,6 +446,22 @@ public class AuditLogFacade {
         "sensitivePaths", values.properties().stream().map(Map.Entry::getKey).sorted().toList());
     input.put("previousHash", event.getPreviousHash());
     return input;
+  }
+
+  private void signLifecycle(AuditEventEntity event) {
+    event.signLifecycle(
+        checkpointSigner.signLifecycle(lifecycleInput(event)), checkpointSigner.keyId());
+  }
+
+  private String lifecycleInput(AuditEventEntity event) {
+    Map<String, Object> input = new TreeMap<>();
+    input.put("eventId", event.getEventId());
+    input.put("contentHash", event.getContentHash());
+    input.put("status", event.getStatus().name());
+    input.put("archivedAt", event.getArchivedAt());
+    input.put("archivePolicy", event.getArchivePolicy());
+    input.put("redactionCertificate", event.getRedactionCertificateJson());
+    return canonical(input);
   }
 
   private JsonNode protect(JsonNode payload, ObjectNode values) {

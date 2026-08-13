@@ -27,6 +27,15 @@ public class AuditCheckpointSigner {
     return properties.getKeyId();
   }
 
+  public String signLifecycle(String lifecycleCanonicalForm) {
+    return HashUtils.hmacSha256(
+        properties.getCheckpointKey(), "audit-lifecycle-v1\n" + lifecycleCanonicalForm);
+  }
+
+  public boolean verifiesLifecycle(String lifecycleCanonicalForm, String signature) {
+    return HashUtils.constantTimeEquals(signLifecycle(lifecycleCanonicalForm), signature);
+  }
+
   private String input(long sequence, String eventId, String contentHash) {
     return String.join(
         "\n",

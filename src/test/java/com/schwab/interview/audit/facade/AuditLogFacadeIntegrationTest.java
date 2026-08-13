@@ -181,6 +181,18 @@ class AuditLogFacadeIntegrationTest extends AuditIntegrationTestSupport {
     }
 
     @Test
+    void detectsModifiedLifecycleEvidence() throws Exception {
+      var event = append("READ", "alice", "ACCOUNT", "one", "{\"outcome\":\"ALLOW\"}");
+      var stored = repository.findByEventId(event.eventId()).orElseThrow();
+      var archivePolicy = stored.getClass().getDeclaredField("archivePolicy");
+      archivePolicy.setAccessible(true);
+      archivePolicy.set(stored, "forged-policy");
+      repository.flush();
+
+      assertThat(facade.verify().firstViolation().type()).isEqualTo("LIFECYCLE_SIGNATURE_MISMATCH");
+    }
+
+    @Test
     void rejectsMissingOrAmbiguousExportSelectors() {
       assertThatIllegalArgumentException().isThrownBy(() -> facade.export(null, null, null, null));
       assertThatIllegalArgumentException()

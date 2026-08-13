@@ -67,6 +67,12 @@ public class AuditEventEntity {
   @Column(name = "redaction_certificate_json")
   private String redactionCertificateJson;
 
+  @Column(name = "lifecycle_signature", length = 64)
+  private String lifecycleSignature;
+
+  @Column(name = "lifecycle_signature_key_id", length = 128)
+  private String lifecycleSignatureKeyId;
+
   protected AuditEventEntity() {}
 
   public AuditEventEntity(
@@ -157,8 +163,21 @@ public class AuditEventEntity {
     return redactionCertificateJson;
   }
 
+  public String getLifecycleSignature() {
+    return lifecycleSignature;
+  }
+
+  public String getLifecycleSignatureKeyId() {
+    return lifecycleSignatureKeyId;
+  }
+
   public void setContentHash(String value) {
     contentHash = value;
+  }
+
+  public void signLifecycle(String signature, String keyId) {
+    lifecycleSignature = signature;
+    lifecycleSignatureKeyId = keyId;
   }
 
   public void redact(String payload, String certificate) {
