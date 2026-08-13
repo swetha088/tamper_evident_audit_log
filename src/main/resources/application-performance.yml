@@ -1,0 +1,9 @@
+spring:
+  config:
+    activate:
+      on-profile: performance
+
+audit:
+  performance:
+    enabled: true
+    event-count: 1000

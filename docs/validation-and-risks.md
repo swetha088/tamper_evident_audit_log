@@ -25,6 +25,7 @@
 | APIs expose records to unauthorized callers | Local access is deliberately open; production requires HTTP Basic credentials supplied through the environment. Replace the single in-memory principal with enterprise identity/authorization before real-data use. |
 | H2 differs from MySQL | H2 runs in MySQL compatibility mode locally; validate schema, transaction behavior, and performance against MySQL before production release. |
 | A privileged application host can access the checkpoint HMAC key | Keep `AUDIT_INTEGRITY_CHECKPOINT_KEY` in a production secret manager, rotate it with a checkpoint migration plan, and add an external immutable checkpoint service for stronger non-repudiation. |
+| Performance behavior is inferred from a developer machine | The `performance` profile provides a reproducible single-process append/verify baseline only. Establish latency, throughput, and concurrency targets and run a production-MySQL load test before release. |
 
 ## Non-goals for the prototype
 

@@ -3,6 +3,8 @@ spring:
     name: tamper-evident-audit-log
   profiles:
     default: local
+    group:
+      performance: local
   datasource:
     url: jdbc:h2:file:./data/audit-log;MODE=MySQL;DATABASE_TO_LOWER=TRUE
     username: sa
@@ -30,5 +32,8 @@ audit:
   integrity:
     checkpoint-key: local-development-checkpoint-key-not-for-production
     key-id: local-v1
+  performance:
+    enabled: false
+    event-count: 1000
   retention:
     default-window: P90D

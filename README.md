@@ -54,6 +54,14 @@ The default local profile permits unauthenticated requests only for developer co
 
 Every current chain-head checkpoint is HMAC-SHA-256 signed. Local development uses a non-secret development value; production requires `AUDIT_INTEGRITY_CHECKPOINT_KEY` (and optionally `AUDIT_INTEGRITY_KEY_ID`). Store the production key in a secret manager, never in source control. This detects database-only checkpoint tampering but is not a substitute for externally immutable checkpoints.
 
+For a repeatable single-process baseline, activate the `performance` profile. It includes the local profile, appends 1,000 probe events, verifies the full chain, and logs append and verification durations. It intentionally does not run in ordinary environments and is not a concurrent or production-MySQL load test:
+
+```powershell
+mvn spring-boot:run "-Dspring-boot.run.profiles=performance"
+```
+
+Override the count with `--audit.performance.event-count=5000` when invoking the application.
+
 `mvn verify` enforces Java/Maven versions, checks Google Java Format, runs tests, and produces a CycloneDX SBOM under `target/`. GitHub Actions repeats that gate for pushes and pull requests; pull requests also receive GitHub dependency review and Dependabot updates Maven and GitHub Action dependencies weekly.
 
 Example write request:
