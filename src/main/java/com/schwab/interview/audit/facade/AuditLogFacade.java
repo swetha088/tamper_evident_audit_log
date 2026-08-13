@@ -23,6 +23,7 @@ import com.schwab.interview.audit.utils.AuditConstants;
 import com.schwab.interview.audit.utils.HashUtils;
 import jakarta.persistence.criteria.Predicate;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -102,8 +103,8 @@ public class AuditLogFacade {
                 request.actorId(),
                 request.resourceType(),
                 request.resourceId(),
-                request.occurredAt(),
-                Instant.now(),
+                normalizeTimestamp(request.occurredAt()),
+                normalizeTimestamp(Instant.now()),
                 canonical(request.payload()),
                 canonical(commitments),
                 previous));
@@ -468,6 +469,10 @@ public class AuditLogFacade {
     if (from != null && to != null && from.isAfter(to)) {
       throw new IllegalArgumentException("from must not be after to");
     }
+  }
+
+  private Instant normalizeTimestamp(Instant timestamp) {
+    return timestamp == null ? null : timestamp.truncatedTo(ChronoUnit.MICROS);
   }
 
   private String canonical(Object value) {

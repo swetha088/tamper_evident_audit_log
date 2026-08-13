@@ -124,6 +124,20 @@ class AuditLogFacadeIntegrationTest extends AuditIntegrationTestSupport {
       assertThat(firstPage.nextCursor()).isNotBlank();
       assertThat(secondPage.items()).singleElement().extracting("resourceId").isEqualTo("two");
     }
+
+    @Test
+    void normalizesCallerTimestampPrecisionBeforeHashing() throws Exception {
+      var originalTimestamp = java.time.Instant.parse("2026-08-13T12:34:56.123456789Z");
+      facade.append(
+          new AppendEventRequest(
+              "READ", "alice", "ACCOUNT", "one", json.readTree("{}"), originalTimestamp, null));
+
+      assertThat(facade.query(null, null, null, null, null, null, null, 10).items())
+          .singleElement()
+          .extracting("occurredAt")
+          .isEqualTo(java.time.Instant.parse("2026-08-13T12:34:56.123456Z"));
+      assertThat(facade.verify().intact()).isTrue();
+    }
   }
 
   @Nested

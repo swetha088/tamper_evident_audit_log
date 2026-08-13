@@ -1,5 +1,6 @@
 package com.schwab.interview.audit.config;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -21,6 +22,7 @@ public class AuditSecurityConfiguration {
 
   @Configuration
   @Profile("local")
+  @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
   static class LocalSecurityConfiguration {
 
     @Bean
@@ -38,6 +40,7 @@ public class AuditSecurityConfiguration {
 
   @Configuration
   @Profile("prod")
+  @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
   @EnableConfigurationProperties(AuditSecurityProperties.class)
   static class ProductionSecurityConfiguration {
 

@@ -27,7 +27,7 @@ Export API       -> export builder -> records + chain metadata/proofs
 
 ## Hash-chain design principles
 
-- Use SHA-256 with UTF-8 canonical serialization whose field order, timestamp format, null treatment, and number handling are explicitly specified and tested.
+- Use SHA-256 with UTF-8 canonical serialization whose field order, timestamp format, null treatment, and number handling are explicitly specified and tested. All persisted timestamps are normalized to UTC microsecond precision before hashing so database precision cannot change a later verification result.
 - The content hash includes the event identity, immutable event data, canonical timestamp, sequence, prior hash, and redaction commitment metadata.
 - The genesis `previousHash` is a documented fixed 64-hex-character value (all zeroes unless the implementation records a versioned alternative).
 - A database transaction or equivalent serialization mechanism must prevent concurrent writers from receiving the same predecessor.

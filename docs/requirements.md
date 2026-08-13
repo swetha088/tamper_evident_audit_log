@@ -7,7 +7,7 @@ Build a locally runnable audit-log API that accepts immutable event records, sto
 ## Scenario A: Core service acceptance criteria
 
 1. A write endpoint accepts `eventType`, `actorId`, `resourceType`, `resourceId`, structured `payload`, and a timestamp.
-2. The server assigns the canonical timestamp. A caller-supplied timestamp may be retained as metadata only if needed; this avoids clients backdating audit order.
+2. The server assigns the canonical timestamp. A caller-supplied timestamp may be retained as metadata only if needed; this avoids clients backdating audit order. Persisted timestamps are normalized to UTC microsecond precision before chain hashing.
 3. A successful write persists an immutable sequence number, a previous-record hash, and a SHA-256 content hash based on a canonical serialization of the protected record fields.
 4. The public API exposes no update or delete operation for audit records.
 5. A query endpoint supports any combination of actor ID, resource type and ID, event type, and inclusive time range, with deterministic cursor pagination.

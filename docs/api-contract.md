@@ -15,7 +15,7 @@ Request fields:
 | `resourceType` | Yes | A resource classification, such as `CLIENT_ACCOUNT`. |
 | `resourceId` | Yes | Stable identifier of the affected resource. |
 | `payload` | Yes | Structured event detail. Sensitive paths are classified before persistence. |
-| `occurredAt` | No | Caller-observed UTC event time; not the chain ordering timestamp. |
+| `occurredAt` | No | Caller-observed UTC event time; not the chain ordering timestamp. Stored values are normalized to UTC microsecond precision before hashing. |
 
 Response: `201 Created` with the immutable stored event including `eventId`, `sequence`, `recordedAt`, `previousHash`, and `contentHash`.
 
@@ -41,7 +41,7 @@ Response: `200 OK` with:
 }
 ```
 
-When broken, `firstViolation` includes at least the sequence/event identifier and a machine-readable violation type, such as `SEQUENCE_GAP`, `PREVIOUS_HASH_MISMATCH`, `CONTENT_HASH_MISMATCH`, or `INVALID_ARCHIVE_BOUNDARY`.
+When broken, `firstViolation` includes at least the sequence/event identifier and a machine-readable violation type, such as `PREVIOUS_HASH_MISMATCH`, `CONTENT_HASH_MISMATCH`, `SENSITIVE_VALUE_COMMITMENT_MISMATCH`, `CHAIN_HEAD_MISMATCH`, or `CHAIN_HEAD_SIGNATURE_MISMATCH`.
 
 ## `GET /audit/export`
 

@@ -20,6 +20,7 @@ A production-minded prototype of an append-only audit log service. The service w
 - [Draft API contract](docs/api-contract.md)
 - [OpenAPI definition](docs/openapi.yaml)
 - [Validation, security, and risks](docs/validation-and-risks.md)
+- [Testing and validation evidence](docs/testing.md)
 - [AI usage traceability](docs/ai-usage-log.md)
 - [Final engineering summary](docs/final-engineering-summary.md)
 
