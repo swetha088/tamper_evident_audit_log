@@ -1,6 +1,8 @@
 spring:
   application:
     name: tamper-evident-audit-log
+  profiles:
+    default: local
   datasource:
     url: jdbc:h2:file:./data/audit-log;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE
     username: sa
@@ -20,20 +22,3 @@ server:
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
-
----
-spring:
-  config:
-    activate:
-      on-profile: prod
-  datasource:
-    url: ${AUDIT_DB_URL}
-    username: ${AUDIT_DB_USERNAME}
-    password: ${AUDIT_DB_PASSWORD}
-    driver-class-name: org.postgresql.Driver
-  jpa:
-    hibernate:
-      ddl-auto: validate
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect

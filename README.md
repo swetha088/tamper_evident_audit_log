@@ -36,15 +36,19 @@ The service listens on `http://localhost:8080` and persists a local H2 database 
 
 Interactive API documentation is available at `http://localhost:8080/swagger-ui.html` after startup.
 
-For production, use the `prod` profile with a PostgreSQL JDBC URL and credentials:
+For production, use the `prod` profile with a MySQL JDBC URL, database credentials, and HTTP Basic credentials. These values must come from a secret manager or the deployment environment; they are never stored in this repository:
 
 ```powershell
 $env:SPRING_PROFILES_ACTIVE='prod'
-$env:AUDIT_DB_URL='jdbc:postgresql://host:5432/audit_log'
+$env:AUDIT_DB_URL='jdbc:mysql://host:3306/audit_log'
 $env:AUDIT_DB_USERNAME='audit_app'
 $env:AUDIT_DB_PASSWORD='replace-with-a-secret-manager-value'
+$env:AUDIT_SECURITY_USERNAME='audit_api'
+$env:AUDIT_SECURITY_PASSWORD='replace-with-a-secret-manager-value'
 mvn spring-boot:run
 ```
+
+The default local profile permits unauthenticated requests only for developer convenience. The `prod` profile requires HTTP Basic authentication for every route.
 
 Example write request:
 
