@@ -5,6 +5,9 @@ public final class AuditConstants {
     public static final String EVENTS_PATH = "/events";
     public static final String VERIFY_PATH = "/verify";
     public static final String EXPORT_PATH = "/export";
+    public static final String CLIENT_ACCOUNT_ACCESS_REPORT_PATH = "/reports/client-account-access";
+    public static final String CLIENT_ACCOUNT_RESOURCE_TYPE = "CLIENT_ACCOUNT";
+    public static final String CLIENT_DATA_READ_EVENT_TYPE = "CLIENT_DATA_READ";
     public static final String SHA_256 = "SHA-256";
     public static final String HASH_VERSION = "v1";
     public static final String GENESIS_HASH = "0".repeat(64);

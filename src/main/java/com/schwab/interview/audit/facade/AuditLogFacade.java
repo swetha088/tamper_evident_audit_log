@@ -2,6 +2,7 @@ package com.schwab.interview.audit.facade;
 
 import com.schwab.interview.audit.dto.AuditDtos.AppendEventRequest;
 import com.schwab.interview.audit.dto.AuditDtos.ChainWitness;
+import com.schwab.interview.audit.dto.AuditDtos.ClientAccountAccessReport;
 import com.schwab.interview.audit.dto.AuditDtos.EventPageResponse;
 import com.schwab.interview.audit.dto.AuditDtos.EventResponse;
 import com.schwab.interview.audit.dto.AuditDtos.ExportBundleResponse;
@@ -114,6 +115,19 @@ public class AuditLogFacade {
                 .toList();
         return new ExportBundleResponse("audit-export-v1", AuditConstants.SHA_256, AuditConstants.HASH_VERSION,
                 Instant.now(), new ExportCriteria(actorId, resourceId, from, to), records, witnesses, verify());
+    }
+
+    @Transactional(readOnly = true)
+    public ClientAccountAccessReport clientAccountAccessReport(String clientAccountId, Instant from, Instant to) {
+        validateTimeRange(from, to);
+        if (clientAccountId == null || clientAccountId.isBlank()) {
+            throw new IllegalArgumentException("clientAccountId is required");
+        }
+        List<EventResponse> events = repository.findAll(eventSpecification(null,
+                        AuditConstants.CLIENT_ACCOUNT_RESOURCE_TYPE, clientAccountId,
+                        AuditConstants.CLIENT_DATA_READ_EVENT_TYPE, from, to, null), Sort.by("sequence"))
+                .stream().map(this::response).toList();
+        return new ClientAccountAccessReport(clientAccountId, from, to, Instant.now(), events, verify());
     }
 
     @Transactional(readOnly = true)

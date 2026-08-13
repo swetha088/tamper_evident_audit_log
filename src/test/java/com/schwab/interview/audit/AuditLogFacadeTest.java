@@ -73,4 +73,26 @@ class AuditLogFacadeTest {
         assertThatIllegalArgumentException().isThrownBy(() -> facade.export(null, null, null, null));
         assertThatIllegalArgumentException().isThrownBy(() -> facade.export("alice", "one", null, null));
     }
+
+    @Test
+    void clientAccountAccessReportIncludesOnlyDocumentedAccessEvents() throws Exception {
+        facade.append(new AppendEventRequest("CLIENT_DATA_READ", "advisor-7", "CLIENT_ACCOUNT", "acct-42",
+                json.readTree("{\"authorizationOutcome\":\"ALLOW\"}"), null, null));
+        facade.append(new AppendEventRequest("CLIENT_ACCOUNT_UPDATED", "advisor-7", "CLIENT_ACCOUNT", "acct-42",
+                json.readTree("{\"authorizationOutcome\":\"ALLOW\"}"), null, null));
+        facade.append(new AppendEventRequest("CLIENT_DATA_READ", "advisor-8", "CLIENT_ACCOUNT", "acct-43",
+                json.readTree("{\"authorizationOutcome\":\"ALLOW\"}"), null, null));
+
+        var report = facade.clientAccountAccessReport("acct-42", null, null);
+
+        assertThat(report.events()).hasSize(1);
+        assertThat(report.events().getFirst().eventType()).isEqualTo("CLIENT_DATA_READ");
+        assertThat(report.events().getFirst().resourceId()).isEqualTo("acct-42");
+        assertThat(report.verification().intact()).isTrue();
+    }
+
+    @Test
+    void clientAccountAccessReportRequiresAnAccountId() {
+        assertThatIllegalArgumentException().isThrownBy(() -> facade.clientAccountAccessReport(" ", null, null));
+    }
 }

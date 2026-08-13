@@ -1,6 +1,7 @@
 package com.schwab.interview.audit.controller;
 
 import com.schwab.interview.audit.dto.AuditDtos.AppendEventRequest;
+import com.schwab.interview.audit.dto.AuditDtos.ClientAccountAccessReport;
 import com.schwab.interview.audit.dto.AuditDtos.EventPageResponse;
 import com.schwab.interview.audit.dto.AuditDtos.EventResponse;
 import com.schwab.interview.audit.dto.AuditDtos.ExportBundleResponse;
@@ -69,6 +70,14 @@ public class AuditLogController {
                                        @RequestParam(required = false) Instant from,
                                        @RequestParam(required = false) Instant to) {
         return facade.export(actorId, resourceId, from, to);
+    }
+
+    @GetMapping(AuditConstants.CLIENT_ACCOUNT_ACCESS_REPORT_PATH)
+    @Operation(summary = "Report client-account data access events")
+    public ClientAccountAccessReport clientAccountAccessReport(@RequestParam String clientAccountId,
+                                                                @RequestParam(required = false) Instant from,
+                                                                @RequestParam(required = false) Instant to) {
+        return facade.clientAccountAccessReport(clientAccountId, from, to);
     }
 
     @PostMapping("/events/{eventId}/redactions")

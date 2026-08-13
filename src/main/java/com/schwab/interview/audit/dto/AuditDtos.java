@@ -60,6 +60,11 @@ public final class AuditDtos {
                                        VerificationResponse verification) {
     }
 
+    public record ClientAccountAccessReport(String clientAccountId, Instant from, Instant to,
+                                            Instant generatedAt, List<EventResponse> events,
+                                            VerificationResponse verification) {
+    }
+
     public record ErrorResponse(String code, String message, String traceId) {
     }
 }

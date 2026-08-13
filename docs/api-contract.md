@@ -51,6 +51,10 @@ The bundle includes selected records, their sequence/hash fields, chain context 
 
 The prototype includes `chainWitnesses` for every row in the chain, with the canonical protected hash input for each. This favors independent verification and clarity over export size; it is not an efficient production design for long histories.
 
+## `GET /audit/reports/client-account-access`
+
+Returns only `CLIENT_DATA_READ` events whose `resourceType` is `CLIENT_ACCOUNT` and whose `resourceId` equals the required `clientAccountId`. Optional `from` and `to` filters apply to server-assigned `recordedAt` values. The response includes the matching events and a full-chain verification result. This endpoint implements the stated prototype assumption; it does not infer access from unrelated event types or replace regulatory reporting workflow controls.
+
 ## `POST /audit/events/{eventId}/redactions`
 
 Redacts one or more previously declared sensitive payload paths. Request fields are `paths`, `actorId`, and `reason`. The path must have been declared in `sensitivePaths` at append time. The endpoint replaces the cleartext with `[REDACTED]` while retaining the chain-protected commitment.
