@@ -1,6 +1,76 @@
 package com.schwab.interview.audit;
-import com.schwab.interview.audit.dto.AuditDtos.*; import com.schwab.interview.audit.facade.AuditLogFacade; import com.schwab.interview.audit.repository.AuditEventRepository; import org.junit.jupiter.api.*; import org.springframework.beans.factory.annotation.*; import org.springframework.boot.test.context.SpringBootTest; import org.springframework.transaction.annotation.Transactional; import tools.jackson.databind.ObjectMapper; import static org.assertj.core.api.Assertions.assertThat;
-@SpringBootTest(properties="spring.datasource.url=jdbc:h2:mem:audit-test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1") @Transactional class AuditLogFacadeTest { @Autowired AuditLogFacade facade; @Autowired AuditEventRepository repository; @Autowired ObjectMapper json;
- @Test void detectsTampering() throws Exception {var e=facade.append(new AppendEventRequest("USER_LOGIN","alice","ACCOUNT","1",json.readTree("{\"outcome\":\"SUCCESS\"}"),null,null));var stored=repository.findByEventId(e.eventId()).orElseThrow();var field=stored.getClass().getDeclaredField("actorId");field.setAccessible(true);field.set(stored,"mallory");repository.flush();assertThat(facade.verify().firstViolation().type()).isEqualTo("CONTENT_HASH_MISMATCH");}
- @Test void redactionPreservesChain() throws Exception {var e=facade.append(new AppendEventRequest("READ","alice","ACCOUNT","1",json.readTree("{\"client\":{\"ssn\":\"123\"}}"),null,java.util.List.of("client.ssn")));facade.redact(e.eventId(),new RedactionRequest(java.util.List.of("client.ssn"),"privacy","request"));assertThat(facade.verify().intact()).isTrue();}
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+
+import com.schwab.interview.audit.dto.AuditDtos.AppendEventRequest;
+import com.schwab.interview.audit.dto.AuditDtos.RedactionRequest;
+import com.schwab.interview.audit.facade.AuditLogFacade;
+import com.schwab.interview.audit.repository.AuditEventRepository;
+import java.util.List;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.ObjectMapper;
+
+@SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:audit-test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1")
+@Transactional
+class AuditLogFacadeTest {
+    @Autowired
+    AuditLogFacade facade;
+
+    @Autowired
+    AuditEventRepository repository;
+
+    @Autowired
+    ObjectMapper json;
+
+    @Test
+    void detectsTampering() throws Exception {
+        var event = facade.append(new AppendEventRequest("USER_LOGIN", "alice", "ACCOUNT", "1",
+                json.readTree("{\"outcome\":\"SUCCESS\"}"), null, null));
+
+        var stored = repository.findByEventId(event.eventId()).orElseThrow();
+        var field = stored.getClass().getDeclaredField("actorId");
+        field.setAccessible(true);
+        field.set(stored, "mallory");
+        repository.flush();
+
+        assertThat(facade.verify().firstViolation().type()).isEqualTo("CONTENT_HASH_MISMATCH");
+    }
+
+    @Test
+    void redactionPreservesChain() throws Exception {
+        var event = facade.append(new AppendEventRequest("READ", "alice", "ACCOUNT", "1",
+                json.readTree("{\"client\":{\"ssn\":\"123\"}}"), null, List.of("client.ssn")));
+
+        facade.redact(event.eventId(), new RedactionRequest(List.of("client.ssn"), "privacy", "request"));
+
+        assertThat(facade.verify().intact()).isTrue();
+    }
+
+    @Test
+    void exportContainsSelectedRecordsAndFullChainWitness() throws Exception {
+        facade.append(new AppendEventRequest("READ", "alice", "ACCOUNT", "one",
+                json.readTree("{\"outcome\":\"ALLOW\"}"), null, null));
+        facade.append(new AppendEventRequest("UPDATE", "bob", "ACCOUNT", "two",
+                json.readTree("{\"outcome\":\"ALLOW\"}"), null, null));
+        facade.append(new AppendEventRequest("READ", "alice", "ACCOUNT", "one",
+                json.readTree("{\"outcome\":\"ALLOW\"}"), null, null));
+
+        var bundle = facade.export(null, "one", null, null);
+
+        assertThat(bundle.records()).hasSize(2);
+        assertThat(bundle.records()).allSatisfy(record -> assertThat(record.resourceId()).isEqualTo("one"));
+        assertThat(bundle.chainWitnesses()).hasSize(3);
+        assertThat(bundle.verification().intact()).isTrue();
+        assertThat(bundle.records().getFirst().previousHash()).isEqualTo("0".repeat(64));
+    }
+
+    @Test
+    void exportRequiresExactlyOneSelector() {
+        assertThatIllegalArgumentException().isThrownBy(() -> facade.export(null, null, null, null));
+        assertThatIllegalArgumentException().isThrownBy(() -> facade.export("alice", "one", null, null));
+    }
 }

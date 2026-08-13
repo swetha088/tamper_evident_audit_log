@@ -1,23 +1,308 @@
 package com.schwab.interview.audit.facade;
 
-import com.schwab.interview.audit.dto.AuditDtos.*; import com.schwab.interview.audit.entity.AuditEventEntity; import com.schwab.interview.audit.exception.AuditNotFoundException; import com.schwab.interview.audit.mapper.AuditEventMapper; import com.schwab.interview.audit.repository.AuditEventRepository; import com.schwab.interview.audit.utils.*;
-import tools.jackson.core.JacksonException; import tools.jackson.databind.*; import tools.jackson.databind.node.*; import org.springframework.data.domain.*; import org.springframework.data.jpa.domain.Specification; import org.springframework.stereotype.Component; import org.springframework.transaction.annotation.*;
-import java.time.*; import java.util.*;
+import com.schwab.interview.audit.dto.AuditDtos.AppendEventRequest;
+import com.schwab.interview.audit.dto.AuditDtos.ChainWitness;
+import com.schwab.interview.audit.dto.AuditDtos.EventPageResponse;
+import com.schwab.interview.audit.dto.AuditDtos.EventResponse;
+import com.schwab.interview.audit.dto.AuditDtos.ExportBundleResponse;
+import com.schwab.interview.audit.dto.AuditDtos.ExportCriteria;
+import com.schwab.interview.audit.dto.AuditDtos.ExportRecord;
+import com.schwab.interview.audit.dto.AuditDtos.RedactionRequest;
+import com.schwab.interview.audit.dto.AuditDtos.VerificationResponse;
+import com.schwab.interview.audit.dto.AuditDtos.ViolationResponse;
+import com.schwab.interview.audit.entity.AuditEventEntity;
+import com.schwab.interview.audit.exception.AuditNotFoundException;
+import com.schwab.interview.audit.mapper.AuditEventMapper;
+import com.schwab.interview.audit.repository.AuditEventRepository;
+import com.schwab.interview.audit.utils.AuditConstants;
+import com.schwab.interview.audit.utils.HashUtils;
+import jakarta.persistence.criteria.Predicate;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
+import java.util.UUID;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.SerializationFeature;
+import tools.jackson.databind.node.ObjectNode;
+import tools.jackson.databind.node.StringNode;
+
 @Component
 public class AuditLogFacade {
- private final AuditEventRepository repository; private final AuditEventMapper mapper; private final ObjectMapper json;
- public AuditLogFacade(AuditEventRepository repository,AuditEventMapper mapper,ObjectMapper json){this.repository=repository;this.mapper=mapper;this.json=json;}
- @Transactional(isolation=Isolation.SERIALIZABLE) public EventResponse append(AppendEventRequest r){
-  if(!r.payload().isObject())throw new IllegalArgumentException("payload must be a JSON object"); var paths=r.sensitivePaths()==null?List.<String>of():r.sensitivePaths().stream().sorted().toList(); if(new HashSet<>(paths).size()!=paths.size())throw new IllegalArgumentException("sensitivePaths must not contain duplicates");
-  String salt=UUID.randomUUID().toString(); ObjectNode values=json.createObjectNode(); for(String p:paths)values.put(p,HashUtils.sha256(salt+":"+canonical(path(r.payload(),p)))); ObjectNode commitments=json.createObjectNode();commitments.put("salt",salt);commitments.set("values",values);
-  String previous=repository.findFirstByOrderBySequenceDesc().map(AuditEventEntity::getContentHash).orElse(AuditConstants.GENESIS_HASH); var event=repository.saveAndFlush(new AuditEventEntity(UUID.randomUUID().toString(),r.eventType(),r.actorId(),r.resourceType(),r.resourceId(),r.occurredAt(),Instant.now(),canonical(r.payload()),canonical(commitments),previous)); event.setContentHash(HashUtils.sha256(canonical(hashInput(event,r.payload(),values)))); return response(event);
- }
- @Transactional(readOnly=true) public EventPageResponse query(String actor,String resourceType,String resourceId,String eventType,Instant from,Instant to,Long cursor,int limit){if(limit<1||limit>AuditConstants.MAX_PAGE_SIZE)throw new IllegalArgumentException("limit must be between 1 and "+AuditConstants.MAX_PAGE_SIZE); Specification<AuditEventEntity> s=(root,q,b)->{var p=new ArrayList<jakarta.persistence.criteria.Predicate>();eq(p,b,root,"actorId",actor);eq(p,b,root,"resourceType",resourceType);eq(p,b,root,"resourceId",resourceId);eq(p,b,root,"eventType",eventType);if(from!=null)p.add(b.greaterThanOrEqualTo(root.get("recordedAt"),from));if(to!=null)p.add(b.lessThanOrEqualTo(root.get("recordedAt"),to));if(cursor!=null)p.add(b.greaterThan(root.get("sequence"),cursor));return b.and(p.toArray(jakarta.persistence.criteria.Predicate[]::new));}; var rows=repository.findAll(s,PageRequest.of(0,limit+1,Sort.by("sequence"))).getContent();boolean more=rows.size()>limit;if(more)rows=rows.subList(0,limit);return new EventPageResponse(rows.stream().map(this::response).toList(),more?String.valueOf(rows.getLast().getSequence()):null);}
- private void eq(List<jakarta.persistence.criteria.Predicate> p,jakarta.persistence.criteria.CriteriaBuilder b,jakarta.persistence.criteria.Root<AuditEventEntity> root,String field,String value){if(value!=null)p.add(b.equal(root.get(field),value));}
- @Transactional(readOnly=true) public VerificationResponse verify(){String previous=AuditConstants.GENESIS_HASH;long checked=0;for(var e:repository.findAllByOrderBySequenceAsc()){if(!previous.equals(e.getPreviousHash()))return broken(checked,e,"PREVIOUS_HASH_MISMATCH");ObjectNode c=object(e.getCommitmentsJson());ObjectNode values=(ObjectNode)c.get("values");JsonNode payload=node(e.getPayloadJson());if(e.getStatus()==AuditEventEntity.Status.ACTIVE)for(var entry:values.properties())if(!HashUtils.sha256(c.get("salt").asText()+":"+canonical(path(payload,entry.getKey()))).equals(entry.getValue().asText()))return broken(checked,e,"SENSITIVE_VALUE_COMMITMENT_MISMATCH");if(!HashUtils.sha256(canonical(hashInput(e,payload,values))).equals(e.getContentHash()))return broken(checked,e,"CONTENT_HASH_MISMATCH");previous=e.getContentHash();checked++;}return new VerificationResponse(true,checked,null);}
- @Transactional public EventResponse redact(String id,RedactionRequest r){var e=repository.findByEventId(id).orElseThrow(()->new AuditNotFoundException("Event not found"));ObjectNode values=(ObjectNode)object(e.getCommitmentsJson()).get("values");JsonNode p=node(e.getPayloadJson());for(String path:r.paths()){if(!values.has(path))throw new IllegalArgumentException("Path is not declared redaction-sensitive: "+path);p=replace(p,path,new StringNode(AuditConstants.REDACTED_VALUE));}ObjectNode cert=json.createObjectNode();cert.put("actorId",r.actorId());cert.put("reason",r.reason());cert.put("redactedAt",Instant.now().toString());e.redact(canonical(p),canonical(cert));return response(e);}
- @Transactional public Map<String,Object> archive(Instant cutoff,String policy){String p=policy==null?"default-retention-policy":policy;var records=repository.findByRecordedAtBeforeAndStatus(cutoff,AuditEventEntity.Status.ACTIVE);records.forEach(e->e.archive(Instant.now(),p));return Map.of("archived",records.size(),"cutoff",cutoff,"policy",p);}
- private EventResponse response(AuditEventEntity e){var base=mapper.toResponse(e);ObjectNode c=object(e.getCommitmentsJson());return new EventResponse(base.sequence(),base.eventId(),base.eventType(),base.actorId(),base.resourceType(),base.resourceId(),base.occurredAt(),base.recordedAt(),node(e.getPayloadJson()),c.get("values").properties().stream().map(Map.Entry::getKey).sorted().toList(),base.previousHash(),base.contentHash(),base.status(),base.archivedAt(),base.archivePolicy(),e.getRedactionCertificateJson()==null?null:node(e.getRedactionCertificateJson()));}
- private VerificationResponse broken(long count,AuditEventEntity e,String type){return new VerificationResponse(false,count,new ViolationResponse(e.getSequence(),e.getEventId(),type));} private Map<String,Object> hashInput(AuditEventEntity e,JsonNode payload,ObjectNode values){Map<String,Object> m=new TreeMap<>();m.put("hashVersion",AuditConstants.HASH_VERSION);m.put("sequence",e.getSequence());m.put("eventId",e.getEventId());m.put("eventType",e.getEventType());m.put("actorId",e.getActorId());m.put("resourceType",e.getResourceType());m.put("resourceId",e.getResourceId());m.put("occurredAt",e.getOccurredAt());m.put("recordedAt",e.getRecordedAt());m.put("payload",protect(payload,values));m.put("sensitivePaths",values.properties().stream().map(Map.Entry::getKey).sorted().toList());m.put("previousHash",e.getPreviousHash());return m;}
- private JsonNode protect(JsonNode p,ObjectNode values){JsonNode r=p.deepCopy();for(var e:values.properties())r=replace(r,e.getKey(),json.createObjectNode().put("commitment",e.getValue().asText()));return r;} private JsonNode path(JsonNode n,String path){JsonNode v=n.at("/"+path.replace(".","/"));if(v.isMissingNode())throw new IllegalArgumentException("Sensitive path does not exist: "+path);return v;} private JsonNode replace(JsonNode n,String path,JsonNode v){ObjectNode c=(ObjectNode)n.deepCopy(),parent=c;String[] a=path.split("\\.");for(int i=0;i<a.length-1;i++){if(!(parent.get(a[i]) instanceof ObjectNode o))throw new IllegalArgumentException("Sensitive path does not exist: "+path);parent=o;}parent.set(a[a.length-1],v);return c;} private String canonical(Object v){try{return json.writer().with(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS).writeValueAsString(v);}catch(JacksonException e){throw new IllegalStateException(e);}} private JsonNode node(String s){try{return json.readTree(s);}catch(JacksonException e){throw new IllegalStateException(e);}} private ObjectNode object(String s){return(ObjectNode)node(s);}
+    private final AuditEventRepository repository;
+    private final AuditEventMapper mapper;
+    private final ObjectMapper json;
+
+    public AuditLogFacade(AuditEventRepository repository, AuditEventMapper mapper, ObjectMapper json) {
+        this.repository = repository;
+        this.mapper = mapper;
+        this.json = json;
+    }
+
+    @Transactional(isolation = Isolation.SERIALIZABLE)
+    public EventResponse append(AppendEventRequest request) {
+        if (!request.payload().isObject()) {
+            throw new IllegalArgumentException("payload must be a JSON object");
+        }
+        List<String> paths = request.sensitivePaths() == null ? List.of()
+                : request.sensitivePaths().stream().sorted().toList();
+        if (new HashSet<>(paths).size() != paths.size()) {
+            throw new IllegalArgumentException("sensitivePaths must not contain duplicates");
+        }
+
+        String salt = UUID.randomUUID().toString();
+        ObjectNode values = json.createObjectNode();
+        for (String path : paths) {
+            values.put(path, HashUtils.sha256(salt + ":" + canonical(path(request.payload(), path))));
+        }
+        ObjectNode commitments = json.createObjectNode();
+        commitments.put("salt", salt);
+        commitments.set("values", values);
+
+        String previous = repository.findFirstByOrderBySequenceDesc()
+                .map(AuditEventEntity::getContentHash)
+                .orElse(AuditConstants.GENESIS_HASH);
+        AuditEventEntity event = repository.saveAndFlush(new AuditEventEntity(
+                UUID.randomUUID().toString(), request.eventType(), request.actorId(), request.resourceType(),
+                request.resourceId(), request.occurredAt(), Instant.now(), canonical(request.payload()),
+                canonical(commitments), previous));
+        event.setContentHash(HashUtils.sha256(canonical(hashInput(event, request.payload(), values))));
+        return response(event);
+    }
+
+    @Transactional(readOnly = true)
+    public EventPageResponse query(String actorId, String resourceType, String resourceId, String eventType,
+                                   Instant from, Instant to, Long cursor, int limit) {
+        validateTimeRange(from, to);
+        if (limit < 1 || limit > AuditConstants.MAX_PAGE_SIZE) {
+            throw new IllegalArgumentException("limit must be between 1 and " + AuditConstants.MAX_PAGE_SIZE);
+        }
+        List<AuditEventEntity> rows = repository.findAll(
+                eventSpecification(actorId, resourceType, resourceId, eventType, from, to, cursor),
+                PageRequest.of(0, limit + 1, Sort.by("sequence"))).getContent();
+        boolean more = rows.size() > limit;
+        if (more) {
+            rows = rows.subList(0, limit);
+        }
+        return new EventPageResponse(rows.stream().map(this::response).toList(),
+                more ? String.valueOf(rows.getLast().getSequence()) : null);
+    }
+
+    @Transactional(readOnly = true)
+    public ExportBundleResponse export(String actorId, String resourceId, Instant from, Instant to) {
+        validateTimeRange(from, to);
+        if ((actorId == null) == (resourceId == null)) {
+            throw new IllegalArgumentException("Exactly one of actorId or resourceId is required");
+        }
+        List<AuditEventEntity> selected = repository.findAll(
+                eventSpecification(actorId, null, resourceId, null, from, to, null), Sort.by("sequence"));
+        List<AuditEventEntity> chain = repository.findAllByOrderBySequenceAsc();
+        List<ExportRecord> records = selected.stream().map(this::exportRecord).toList();
+        List<ChainWitness> witnesses = chain.stream()
+                .map(event -> new ChainWitness(event.getSequence(), event.getEventId(), event.getPreviousHash(),
+                        event.getContentHash()))
+                .toList();
+        return new ExportBundleResponse("audit-export-v1", AuditConstants.SHA_256, AuditConstants.HASH_VERSION,
+                Instant.now(), new ExportCriteria(actorId, resourceId, from, to), records, witnesses, verify());
+    }
+
+    @Transactional(readOnly = true)
+    public VerificationResponse verify() {
+        String previous = AuditConstants.GENESIS_HASH;
+        long checked = 0;
+        for (AuditEventEntity event : repository.findAllByOrderBySequenceAsc()) {
+            if (!previous.equals(event.getPreviousHash())) {
+                return broken(checked, event, "PREVIOUS_HASH_MISMATCH");
+            }
+            ObjectNode commitments = object(event.getCommitmentsJson());
+            ObjectNode values = (ObjectNode) commitments.get("values");
+            JsonNode payload = node(event.getPayloadJson());
+            if (event.getStatus() == AuditEventEntity.Status.ACTIVE) {
+                for (Map.Entry<String, JsonNode> entry : values.properties()) {
+                    String commitment = HashUtils.sha256(commitments.get("salt").asText() + ":"
+                            + canonical(path(payload, entry.getKey())));
+                    if (!commitment.equals(entry.getValue().asText())) {
+                        return broken(checked, event, "SENSITIVE_VALUE_COMMITMENT_MISMATCH");
+                    }
+                }
+            }
+            if (!HashUtils.sha256(canonical(hashInput(event, payload, values))).equals(event.getContentHash())) {
+                return broken(checked, event, "CONTENT_HASH_MISMATCH");
+            }
+            previous = event.getContentHash();
+            checked++;
+        }
+        return new VerificationResponse(true, checked, null);
+    }
+
+    @Transactional
+    public EventResponse redact(String eventId, RedactionRequest request) {
+        AuditEventEntity event = repository.findByEventId(eventId)
+                .orElseThrow(() -> new AuditNotFoundException("Event not found"));
+        ObjectNode values = (ObjectNode) object(event.getCommitmentsJson()).get("values");
+        JsonNode payload = node(event.getPayloadJson());
+        for (String path : request.paths()) {
+            if (!values.has(path)) {
+                throw new IllegalArgumentException("Path is not declared redaction-sensitive: " + path);
+            }
+            payload = replace(payload, path, new StringNode(AuditConstants.REDACTED_VALUE));
+        }
+        ObjectNode certificate = json.createObjectNode();
+        certificate.put("actorId", request.actorId());
+        certificate.put("reason", request.reason());
+        certificate.put("redactedAt", Instant.now().toString());
+        event.redact(canonical(payload), canonical(certificate));
+        return response(event);
+    }
+
+    @Transactional
+    public Map<String, Object> archive(Instant cutoff, String policy) {
+        String resolvedPolicy = policy == null ? "default-retention-policy" : policy;
+        List<AuditEventEntity> records = repository.findByRecordedAtBeforeAndStatus(cutoff,
+                AuditEventEntity.Status.ACTIVE);
+        records.forEach(event -> event.archive(Instant.now(), resolvedPolicy));
+        return Map.of("archived", records.size(), "cutoff", cutoff, "policy", resolvedPolicy);
+    }
+
+    private Specification<AuditEventEntity> eventSpecification(String actorId, String resourceType, String resourceId,
+                                                                 String eventType, Instant from, Instant to,
+                                                                 Long cursor) {
+        return (root, query, builder) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            equalsIfSupplied(predicates, builder, root, "actorId", actorId);
+            equalsIfSupplied(predicates, builder, root, "resourceType", resourceType);
+            equalsIfSupplied(predicates, builder, root, "resourceId", resourceId);
+            equalsIfSupplied(predicates, builder, root, "eventType", eventType);
+            if (from != null) {
+                predicates.add(builder.greaterThanOrEqualTo(root.get("recordedAt"), from));
+            }
+            if (to != null) {
+                predicates.add(builder.lessThanOrEqualTo(root.get("recordedAt"), to));
+            }
+            if (cursor != null) {
+                predicates.add(builder.greaterThan(root.get("sequence"), cursor));
+            }
+            return predicates.isEmpty() ? builder.conjunction()
+                    : builder.and(predicates.toArray(Predicate[]::new));
+        };
+    }
+
+    private void equalsIfSupplied(List<Predicate> predicates,
+                                  jakarta.persistence.criteria.CriteriaBuilder builder,
+                                  jakarta.persistence.criteria.Root<AuditEventEntity> root,
+                                  String field, String value) {
+        if (value != null) {
+            predicates.add(builder.equal(root.get(field), value));
+        }
+    }
+
+    private EventResponse response(AuditEventEntity event) {
+        EventResponse base = mapper.toResponse(event);
+        ObjectNode commitments = object(event.getCommitmentsJson());
+        return new EventResponse(base.sequence(), base.eventId(), base.eventType(), base.actorId(),
+                base.resourceType(), base.resourceId(), base.occurredAt(), base.recordedAt(),
+                node(event.getPayloadJson()), commitments.get("values").properties().stream()
+                        .map(Map.Entry::getKey).sorted().toList(), base.previousHash(), base.contentHash(),
+                base.status(), base.archivedAt(), base.archivePolicy(),
+                event.getRedactionCertificateJson() == null ? null : node(event.getRedactionCertificateJson()));
+    }
+
+    private ExportRecord exportRecord(AuditEventEntity event) {
+        ObjectNode commitments = object(event.getCommitmentsJson());
+        ObjectNode values = (ObjectNode) commitments.get("values");
+        JsonNode payload = node(event.getPayloadJson());
+        return new ExportRecord(event.getSequence(), event.getEventId(), event.getEventType(), event.getActorId(),
+                event.getResourceType(), event.getResourceId(), event.getOccurredAt(), event.getRecordedAt(),
+                payload, protect(payload, values), values.properties().stream().map(Map.Entry::getKey).sorted().toList(),
+                event.getPreviousHash(), event.getContentHash());
+    }
+
+    private VerificationResponse broken(long checked, AuditEventEntity event, String type) {
+        return new VerificationResponse(false, checked,
+                new ViolationResponse(event.getSequence(), event.getEventId(), type));
+    }
+
+    private Map<String, Object> hashInput(AuditEventEntity event, JsonNode payload, ObjectNode values) {
+        Map<String, Object> input = new TreeMap<>();
+        input.put("hashVersion", AuditConstants.HASH_VERSION);
+        input.put("sequence", event.getSequence());
+        input.put("eventId", event.getEventId());
+        input.put("eventType", event.getEventType());
+        input.put("actorId", event.getActorId());
+        input.put("resourceType", event.getResourceType());
+        input.put("resourceId", event.getResourceId());
+        input.put("occurredAt", event.getOccurredAt());
+        input.put("recordedAt", event.getRecordedAt());
+        input.put("payload", protect(payload, values));
+        input.put("sensitivePaths", values.properties().stream().map(Map.Entry::getKey).sorted().toList());
+        input.put("previousHash", event.getPreviousHash());
+        return input;
+    }
+
+    private JsonNode protect(JsonNode payload, ObjectNode values) {
+        JsonNode protectedPayload = payload.deepCopy();
+        for (Map.Entry<String, JsonNode> entry : values.properties()) {
+            protectedPayload = replace(protectedPayload, entry.getKey(),
+                    json.createObjectNode().put("commitment", entry.getValue().asText()));
+        }
+        return protectedPayload;
+    }
+
+    private JsonNode path(JsonNode node, String path) {
+        JsonNode value = node.at("/" + path.replace(".", "/"));
+        if (value.isMissingNode()) {
+            throw new IllegalArgumentException("Sensitive path does not exist: " + path);
+        }
+        return value;
+    }
+
+    private JsonNode replace(JsonNode node, String path, JsonNode value) {
+        ObjectNode copy = (ObjectNode) node.deepCopy();
+        ObjectNode parent = copy;
+        String[] segments = path.split("\\.");
+        for (int index = 0; index < segments.length - 1; index++) {
+            if (!(parent.get(segments[index]) instanceof ObjectNode child)) {
+                throw new IllegalArgumentException("Sensitive path does not exist: " + path);
+            }
+            parent = child;
+        }
+        parent.set(segments[segments.length - 1], value);
+        return copy;
+    }
+
+    private void validateTimeRange(Instant from, Instant to) {
+        if (from != null && to != null && from.isAfter(to)) {
+            throw new IllegalArgumentException("from must not be after to");
+        }
+    }
+
+    private String canonical(Object value) {
+        try {
+            return json.writer().with(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS).writeValueAsString(value);
+        } catch (JacksonException exception) {
+            throw new IllegalStateException(exception);
+        }
+    }
+
+    private JsonNode node(String value) {
+        try {
+            return json.readTree(value);
+        } catch (JacksonException exception) {
+            throw new IllegalStateException(exception);
+        }
+    }
+
+    private ObjectNode object(String value) {
+        return (ObjectNode) node(value);
+    }
 }
