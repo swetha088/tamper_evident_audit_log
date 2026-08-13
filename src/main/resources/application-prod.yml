@@ -21,3 +21,10 @@ audit:
   security:
     username: ${AUDIT_SECURITY_USERNAME}
     password: ${AUDIT_SECURITY_PASSWORD}
+    roles: ${AUDIT_SECURITY_ROLES:AUDIT_READER,AUDIT_WRITER,AUDIT_PRIVACY_ADMIN,AUDIT_RETENTION_ADMIN}
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false

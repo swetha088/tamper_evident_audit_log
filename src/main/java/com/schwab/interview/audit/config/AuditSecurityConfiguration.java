@@ -1,9 +1,10 @@
 package com.schwab.interview.audit.config;
 
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -37,6 +38,7 @@ public class AuditSecurityConfiguration {
 
   @Configuration
   @Profile("prod")
+  @EnableConfigurationProperties(AuditSecurityProperties.class)
   static class ProductionSecurityConfiguration {
 
     @Bean
@@ -46,13 +48,11 @@ public class AuditSecurityConfiguration {
 
     @Bean
     UserDetailsService productionUserDetailsService(
-        @Value("${audit.security.username}") String username,
-        @Value("${audit.security.password}") String password,
-        PasswordEncoder passwordEncoder) {
+        AuditSecurityProperties properties, PasswordEncoder passwordEncoder) {
       return ignored ->
-          User.withUsername(username)
-              .password(passwordEncoder.encode(password))
-              .roles("AUDIT_READER")
+          User.withUsername(properties.getUsername())
+              .password(passwordEncoder.encode(properties.getPassword()))
+              .roles(properties.getRoles().toArray(String[]::new))
               .build();
     }
 
@@ -61,7 +61,21 @@ public class AuditSecurityConfiguration {
       return http.csrf(AbstractHttpConfigurer::disable)
           .sessionManagement(
               session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-          .authorizeHttpRequests(authorize -> authorize.anyRequest().authenticated())
+          .authorizeHttpRequests(
+              authorize ->
+                  authorize
+                      .requestMatchers(HttpMethod.GET, "/audit/**")
+                      .hasRole("AUDIT_READER")
+                      .requestMatchers(HttpMethod.POST, "/audit/events/*/redactions")
+                      .hasRole("AUDIT_PRIVACY_ADMIN")
+                      .requestMatchers(HttpMethod.POST, "/audit/retention/run")
+                      .hasRole("AUDIT_RETENTION_ADMIN")
+                      .requestMatchers(HttpMethod.POST, "/audit/events")
+                      .hasRole("AUDIT_WRITER")
+                      .requestMatchers(HttpMethod.POST, "/audit/export/verify")
+                      .hasRole("AUDIT_READER")
+                      .anyRequest()
+                      .denyAll())
           .httpBasic(Customizer.withDefaults())
           .build();
     }

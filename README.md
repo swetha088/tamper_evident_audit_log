@@ -60,7 +60,7 @@ The full CI workflow also validates Flyway and the append/verify path against My
 mvn -Dtest=MySqlAuditIntegrationTest test
 ```
 
-The default local profile permits unauthenticated requests only for developer convenience. The `prod` profile requires HTTP Basic authentication for every route.
+The default local profile permits unauthenticated requests only for developer convenience. The `prod` profile requires HTTP Basic authentication, disables Swagger/OpenAPI endpoints, and applies route-level roles: `AUDIT_READER`, `AUDIT_WRITER`, `AUDIT_PRIVACY_ADMIN`, and `AUDIT_RETENTION_ADMIN`. Configure least-privilege access through `AUDIT_SECURITY_ROLES`; the documented default grants all four roles only as a deployment bootstrap convenience.
 
 Every current chain-head checkpoint is HMAC-SHA-256 signed. Local development uses a non-secret development value; production requires `AUDIT_INTEGRITY_CHECKPOINT_KEY` (and optionally `AUDIT_INTEGRITY_KEY_ID`). Store the production key in a secret manager, never in source control. This detects database-only checkpoint tampering but is not a substitute for externally immutable checkpoints.
 
