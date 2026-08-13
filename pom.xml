@@ -19,7 +19,7 @@
         <springdoc.version>3.0.1</springdoc.version>
         <spotless.version>2.46.1</spotless.version>
         <cyclonedx.version>2.9.1</cyclonedx.version>
-        <jacoco.version>0.8.12</jacoco.version>
+        <jacoco.version>0.8.15</jacoco.version>
     </properties>
     <dependencies>
         <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-webmvc</artifactId></dependency>
