@@ -1,5 +1,6 @@
 package com.schwab.interview.audit.facade;
 
+import com.schwab.interview.audit.config.AuditRetentionProperties;
 import com.schwab.interview.audit.dto.AuditDtos.AppendEventRequest;
 import com.schwab.interview.audit.dto.AuditDtos.ChainWitness;
 import com.schwab.interview.audit.dto.AuditDtos.ClientAccountAccessReport;
@@ -12,9 +13,11 @@ import com.schwab.interview.audit.dto.AuditDtos.RedactionRequest;
 import com.schwab.interview.audit.dto.AuditDtos.VerificationResponse;
 import com.schwab.interview.audit.dto.AuditDtos.ViolationResponse;
 import com.schwab.interview.audit.entity.AuditEventEntity;
+import com.schwab.interview.audit.entity.AuditChainStateEntity;
 import com.schwab.interview.audit.exception.AuditNotFoundException;
 import com.schwab.interview.audit.mapper.AuditEventMapper;
 import com.schwab.interview.audit.repository.AuditEventRepository;
+import com.schwab.interview.audit.repository.AuditChainStateRepository;
 import com.schwab.interview.audit.utils.AuditConstants;
 import com.schwab.interview.audit.utils.HashUtils;
 import jakarta.persistence.criteria.Predicate;
@@ -23,6 +26,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.TreeMap;
 import java.util.UUID;
 import org.springframework.data.domain.PageRequest;
@@ -41,13 +45,19 @@ import tools.jackson.databind.node.StringNode;
 @Component
 public class AuditLogFacade {
     private final AuditEventRepository repository;
+    private final AuditChainStateRepository chainStateRepository;
     private final AuditEventMapper mapper;
     private final ObjectMapper json;
+    private final AuditRetentionProperties retentionProperties;
 
-    public AuditLogFacade(AuditEventRepository repository, AuditEventMapper mapper, ObjectMapper json) {
+    public AuditLogFacade(AuditEventRepository repository, AuditChainStateRepository chainStateRepository,
+                          AuditEventMapper mapper, ObjectMapper json,
+                          AuditRetentionProperties retentionProperties) {
         this.repository = repository;
+        this.chainStateRepository = chainStateRepository;
         this.mapper = mapper;
         this.json = json;
+        this.retentionProperties = retentionProperties;
     }
 
     @Transactional(isolation = Isolation.SERIALIZABLE)
@@ -78,6 +88,10 @@ public class AuditLogFacade {
                 request.resourceId(), request.occurredAt(), Instant.now(), canonical(request.payload()),
                 canonical(commitments), previous));
         event.setContentHash(HashUtils.sha256(canonical(hashInput(event, request.payload(), values))));
+        AuditChainStateEntity chainState = chainStateRepository.findSingletonForUpdate()
+                .orElseGet(() -> new AuditChainStateEntity(event));
+        chainState.advance(event);
+        chainStateRepository.save(chainState);
         return response(event);
     }
 
@@ -134,6 +148,7 @@ public class AuditLogFacade {
     public VerificationResponse verify() {
         String previous = AuditConstants.GENESIS_HASH;
         long checked = 0;
+        AuditEventEntity last = null;
         for (AuditEventEntity event : repository.findAllByOrderBySequenceAsc()) {
             if (!previous.equals(event.getPreviousHash())) {
                 return broken(checked, event, "PREVIOUS_HASH_MISMATCH");
@@ -155,6 +170,20 @@ public class AuditLogFacade {
             }
             previous = event.getContentHash();
             checked++;
+            last = event;
+        }
+        AuditChainStateEntity chainState = chainStateRepository.findById(AuditChainStateEntity.SINGLETON_ID)
+                .orElse(null);
+        if (chainState == null && last != null) {
+            return new VerificationResponse(false, checked,
+                    new ViolationResponse(last.getSequence(), last.getEventId(), "CHAIN_HEAD_MISSING"));
+        }
+        if (chainState != null && (last == null
+                || !Objects.equals(chainState.getHeadSequence(), last.getSequence())
+                || !Objects.equals(chainState.getHeadEventId(), last.getEventId())
+                || !Objects.equals(chainState.getHeadHash(), last.getContentHash()))) {
+            return new VerificationResponse(false, checked, new ViolationResponse(chainState.getHeadSequence(),
+                    chainState.getHeadEventId(), "CHAIN_HEAD_MISMATCH"));
         }
         return new VerificationResponse(true, checked, null);
     }
@@ -181,11 +210,12 @@ public class AuditLogFacade {
 
     @Transactional
     public Map<String, Object> archive(Instant cutoff, String policy) {
+        Instant resolvedCutoff = cutoff == null ? Instant.now().minus(retentionProperties.getDefaultWindow()) : cutoff;
         String resolvedPolicy = policy == null ? "default-retention-policy" : policy;
-        List<AuditEventEntity> records = repository.findByRecordedAtBeforeAndStatus(cutoff,
-                AuditEventEntity.Status.ACTIVE);
+        List<AuditEventEntity> records = repository.findByRecordedAtBeforeAndStatusNot(resolvedCutoff,
+                AuditEventEntity.Status.ARCHIVED);
         records.forEach(event -> event.archive(Instant.now(), resolvedPolicy));
-        return Map.of("archived", records.size(), "cutoff", cutoff, "policy", resolvedPolicy);
+        return Map.of("archived", records.size(), "cutoff", resolvedCutoff, "policy", resolvedPolicy);
     }
 
     private Specification<AuditEventEntity> eventSpecification(String actorId, String resourceType, String resourceId,

@@ -95,4 +95,31 @@ class AuditLogFacadeTest {
     void clientAccountAccessReportRequiresAnAccountId() {
         assertThatIllegalArgumentException().isThrownBy(() -> facade.clientAccountAccessReport(" ", null, null));
     }
+
+    @Test
+    void detectsTailDeletionFromPersistedChainHead() throws Exception {
+        facade.append(new AppendEventRequest("READ", "alice", "ACCOUNT", "one",
+                json.readTree("{\"outcome\":\"ALLOW\"}"), null, null));
+        var tail = facade.append(new AppendEventRequest("READ", "alice", "ACCOUNT", "two",
+                json.readTree("{\"outcome\":\"ALLOW\"}"), null, null));
+
+        repository.deleteById(tail.sequence());
+        repository.flush();
+
+        assertThat(facade.verify().firstViolation().type()).isEqualTo("CHAIN_HEAD_MISMATCH");
+    }
+
+    @Test
+    void archiveIncludesRedactedRecordsWithoutBreakingVerification() throws Exception {
+        var event = facade.append(new AppendEventRequest("READ", "alice", "ACCOUNT", "one",
+                json.readTree("{\"client\":{\"ssn\":\"123\"}}"), null, List.of("client.ssn")));
+        facade.redact(event.eventId(), new RedactionRequest(List.of("client.ssn"), "privacy", "request"));
+
+        var result = facade.archive(java.time.Instant.now().plusSeconds(1), "privacy-retention");
+
+        assertThat(result.get("archived")).isEqualTo(1);
+        assertThat(facade.query(null, null, null, null, null, null, null, 10).items().getFirst().status())
+                .isEqualTo(com.schwab.interview.audit.entity.AuditEventEntity.Status.ARCHIVED);
+        assertThat(facade.verify().intact()).isTrue();
+    }
 }

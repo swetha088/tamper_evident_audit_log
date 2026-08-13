@@ -22,7 +22,7 @@ public final class AuditDtos {
                                    @NotBlank String reason) {
     }
 
-    public record RetentionRequest(@NotNull Instant cutoff, String policy) {
+    public record RetentionRequest(Instant cutoff, String policy) {
     }
 
     public record EventResponse(Long sequence, String eventId, String eventType, String actorId,

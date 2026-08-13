@@ -145,7 +145,7 @@ components:
               properties:
                 sequence: { type: integer }
                 eventId: { type: string, format: uuid }
-                type: { type: string, enum: [SEQUENCE_GAP, PREVIOUS_HASH_MISMATCH, CONTENT_HASH_MISMATCH, SENSITIVE_VALUE_COMMITMENT_MISMATCH] }
+                type: { type: string, enum: [PREVIOUS_HASH_MISMATCH, CONTENT_HASH_MISMATCH, SENSITIVE_VALUE_COMMITMENT_MISMATCH, CHAIN_HEAD_MISSING, CHAIN_HEAD_MISMATCH] }
     Error:
       type: object
       required: [code, message]

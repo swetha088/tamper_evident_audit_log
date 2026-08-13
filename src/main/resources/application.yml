@@ -22,3 +22,7 @@ server:
 springdoc:
   swagger-ui:
     path: /swagger-ui.html
+
+audit:
+  retention:
+    default-window: P90D
