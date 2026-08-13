@@ -27,5 +27,8 @@ springdoc:
     path: /swagger-ui.html
 
 audit:
+  integrity:
+    checkpoint-key: local-development-checkpoint-key-not-for-production
+    key-id: local-v1
   retention:
     default-window: P90D

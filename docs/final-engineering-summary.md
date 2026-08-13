@@ -22,7 +22,7 @@ The server assigns the authoritative chain timestamp; callers may provide a sepa
 
 ## Risks, trade-offs, and limitations
 
-Verification and export scan the full chain, which is clear but not efficient at scale. Hash chains and the local chain-head table are tamper-evident, not tamper-proof against a privileged attacker able to rewrite all data. Production needs explicit schema migrations, least-privilege database accounts, immutable backups, monitoring, and externally signed checkpoints. Soft archival retains the primary row; redaction certificates remain lifecycle metadata rather than separately chained events. H2 compatibility mode does not replace testing against MySQL.
+Verification and export scan the full chain, which is clear but not efficient at scale. The local chain-head is HMAC-SHA-256 signed using a production environment secret, which blocks a database-only attacker from forging the current checkpoint; it is not an externally immutable trust anchor. Production still needs least-privilege database accounts, immutable backups, monitoring, HMAC-key rotation, and an external checkpoint service for stronger non-repudiation. Soft archival retains the primary row; redaction certificates remain lifecycle metadata rather than separately chained events. H2 compatibility mode does not replace testing against MySQL.
 
 ## Validation evidence
 

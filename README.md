@@ -52,6 +52,8 @@ mvn spring-boot:run
 
 The default local profile permits unauthenticated requests only for developer convenience. The `prod` profile requires HTTP Basic authentication for every route.
 
+Every current chain-head checkpoint is HMAC-SHA-256 signed. Local development uses a non-secret development value; production requires `AUDIT_INTEGRITY_CHECKPOINT_KEY` (and optionally `AUDIT_INTEGRITY_KEY_ID`). Store the production key in a secret manager, never in source control. This detects database-only checkpoint tampering but is not a substitute for externally immutable checkpoints.
+
 `mvn verify` enforces Java/Maven versions, checks Google Java Format, runs tests, and produces a CycloneDX SBOM under `target/`. GitHub Actions repeats that gate for pushes and pull requests; pull requests also receive GitHub dependency review and Dependabot updates Maven and GitHub Action dependencies weekly.
 
 Example write request:

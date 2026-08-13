@@ -21,11 +21,17 @@ public class AuditChainStateEntity {
   @Column(name = "head_hash", nullable = false, length = 64)
   private String headHash;
 
+  @Column(name = "head_signature", length = 64)
+  private String headSignature;
+
+  @Column(name = "signature_key_id", length = 128)
+  private String signatureKeyId;
+
   protected AuditChainStateEntity() {}
 
-  public AuditChainStateEntity(AuditEventEntity event) {
+  public AuditChainStateEntity(AuditEventEntity event, String signature, String keyId) {
     this.id = SINGLETON_ID;
-    advance(event);
+    advance(event, signature, keyId);
   }
 
   public Long getHeadSequence() {
@@ -40,9 +46,19 @@ public class AuditChainStateEntity {
     return headHash;
   }
 
-  public void advance(AuditEventEntity event) {
+  public String getHeadSignature() {
+    return headSignature;
+  }
+
+  public String getSignatureKeyId() {
+    return signatureKeyId;
+  }
+
+  public void advance(AuditEventEntity event, String signature, String keyId) {
     this.headSequence = event.getSequence();
     this.headEventId = event.getEventId();
     this.headHash = event.getContentHash();
+    this.headSignature = signature;
+    this.signatureKeyId = keyId;
   }
 }

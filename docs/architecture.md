@@ -32,7 +32,7 @@ Export API       -> export builder -> records + chain metadata/proofs
 - The genesis `previousHash` is a documented fixed 64-hex-character value (all zeroes unless the implementation records a versioned alternative).
 - A database transaction or equivalent serialization mechanism must prevent concurrent writers from receiving the same predecessor.
 - Verification checks ordered hash linkage and recomputed content hashes; it stops and reports the first failure. Database primary-key values may have ordinary gaps after rolled-back transactions, so the service does not treat such gaps as integrity failures.
-- A separately persisted, transactionally updated chain-head record stores the latest sequence, event ID, and content hash. Verification compares the scanned tail to this state, detecting a direct deletion of the latest row that a linear hash chain alone would otherwise not reveal. This is still tamper evidence rather than an external trust anchor.
+- A separately persisted, transactionally updated chain-head record stores the latest sequence, event ID, and content hash. Verification compares the scanned tail to this state, detecting a direct deletion of the latest row that a linear hash chain alone would otherwise not reveal. Its current value is HMAC-SHA-256 signed with a key stored outside the database (`AUDIT_INTEGRITY_CHECKPOINT_KEY` in production), so a database-only attacker cannot forge a valid current checkpoint. This is still not an externally immutable trust anchor.
 
 ## Retention and redaction direction
 

@@ -18,6 +18,7 @@ import com.schwab.interview.audit.exception.AuditNotFoundException;
 import com.schwab.interview.audit.mapper.AuditEventMapper;
 import com.schwab.interview.audit.repository.AuditChainStateRepository;
 import com.schwab.interview.audit.repository.AuditEventRepository;
+import com.schwab.interview.audit.utils.AuditCheckpointSigner;
 import com.schwab.interview.audit.utils.AuditConstants;
 import com.schwab.interview.audit.utils.HashUtils;
 import jakarta.persistence.criteria.Predicate;
@@ -49,18 +50,21 @@ public class AuditLogFacade {
   private final AuditEventMapper mapper;
   private final ObjectMapper json;
   private final AuditRetentionProperties retentionProperties;
+  private final AuditCheckpointSigner checkpointSigner;
 
   public AuditLogFacade(
       AuditEventRepository repository,
       AuditChainStateRepository chainStateRepository,
       AuditEventMapper mapper,
       ObjectMapper json,
-      AuditRetentionProperties retentionProperties) {
+      AuditRetentionProperties retentionProperties,
+      AuditCheckpointSigner checkpointSigner) {
     this.repository = repository;
     this.chainStateRepository = chainStateRepository;
     this.mapper = mapper;
     this.json = json;
     this.retentionProperties = retentionProperties;
+    this.checkpointSigner = checkpointSigner;
   }
 
   @Transactional(isolation = Isolation.SERIALIZABLE)
@@ -104,11 +108,13 @@ public class AuditLogFacade {
                 canonical(commitments),
                 previous));
     event.setContentHash(HashUtils.sha256(canonical(hashInput(event, request.payload(), values))));
+    String signature =
+        checkpointSigner.sign(event.getSequence(), event.getEventId(), event.getContentHash());
     AuditChainStateEntity chainState =
         chainStateRepository
             .findSingletonForUpdate()
-            .orElseGet(() -> new AuditChainStateEntity(event));
-    chainState.advance(event);
+            .orElseGet(() -> new AuditChainStateEntity(event, signature, checkpointSigner.keyId()));
+    chainState.advance(event, signature, checkpointSigner.keyId());
     chainStateRepository.save(chainState);
     return response(event);
   }
@@ -252,6 +258,32 @@ public class AuditLogFacade {
           checked,
           new ViolationResponse(
               chainState.getHeadSequence(), chainState.getHeadEventId(), "CHAIN_HEAD_MISMATCH"));
+    }
+    if (chainState != null
+        && (chainState.getHeadSignature() == null
+            || chainState.getSignatureKeyId() == null
+            || !chainState.getSignatureKeyId().equals(checkpointSigner.keyId()))) {
+      return new VerificationResponse(
+          false,
+          checked,
+          new ViolationResponse(
+              chainState.getHeadSequence(),
+              chainState.getHeadEventId(),
+              "CHAIN_HEAD_SIGNATURE_MISSING"));
+    }
+    if (chainState != null
+        && !checkpointSigner.verifies(
+            chainState.getHeadSequence(),
+            chainState.getHeadEventId(),
+            chainState.getHeadHash(),
+            chainState.getHeadSignature())) {
+      return new VerificationResponse(
+          false,
+          checked,
+          new ViolationResponse(
+              chainState.getHeadSequence(),
+              chainState.getHeadEventId(),
+              "CHAIN_HEAD_SIGNATURE_MISMATCH"));
     }
     return new VerificationResponse(true, checked, null);
   }

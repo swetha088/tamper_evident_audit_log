@@ -15,6 +15,9 @@ spring:
         dialect: org.hibernate.dialect.MySQLDialect
 
 audit:
+  integrity:
+    checkpoint-key: ${AUDIT_INTEGRITY_CHECKPOINT_KEY}
+    key-id: ${AUDIT_INTEGRITY_KEY_ID:prod-v1}
   security:
     username: ${AUDIT_SECURITY_USERNAME}
     password: ${AUDIT_SECURITY_PASSWORD}
