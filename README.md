@@ -33,6 +33,7 @@ mvn spring-boot:run
 ```
 
 The service listens on `http://localhost:8080` and persists a local H2 database under `data/`. The H2 URL runs in MySQL compatibility mode to reduce local/production differences.
+Flyway owns the database schema. A first run creates the schema from `src/main/resources/db/migration`; an existing local schema is baselined at version 1 so it can be adopted without destructive changes.
 
 Interactive API documentation is available at `http://localhost:8080/swagger-ui.html` after startup.
 

@@ -17,6 +17,7 @@ import org.springframework.test.web.servlet.MockMvc;
         "spring.datasource.driver-class-name=org.h2.Driver",
         "spring.jpa.hibernate.ddl-auto=create-drop",
         "spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect",
+        "spring.flyway.baseline-on-migrate=false",
         "audit.security.username=test-audit-user",
         "audit.security.password=test-audit-password"
 })
