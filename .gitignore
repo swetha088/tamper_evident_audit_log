@@ -1,0 +1,19 @@
+# IDE and local operating-system files
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Build and test output (adjust once the implementation stack is chosen)
+build/
+target/
+dist/
+coverage/
+
+# Logs
+*.log
