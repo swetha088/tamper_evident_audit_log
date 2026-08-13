@@ -26,3 +26,4 @@ I, Devu Sree Lakshmi Swetha, attest that this submission is my own individual wo
 | 2026-08-13 | Package-aligned success and exception test scenarios prepared for review. |
 | 2026-08-13 | JaCoCo coverage reporting and 85% build gate prepared for review. |
 | 2026-08-13 | Standalone verifiable-export validation prepared for review. |
+| 2026-08-13 | Real-MySQL CI integration path prepared for review. |

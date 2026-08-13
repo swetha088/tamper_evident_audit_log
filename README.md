@@ -54,6 +54,12 @@ $env:AUDIT_SECURITY_PASSWORD='replace-with-a-secret-manager-value'
 mvn spring-boot:run
 ```
 
+The full CI workflow also validates Flyway and the append/verify path against MySQL 8.4. To run only that test locally, provide a disposable MySQL database and set `RUN_MYSQL_INTEGRATION=true`, `AUDIT_TEST_DB_URL`, `AUDIT_TEST_DB_USERNAME`, and `AUDIT_TEST_DB_PASSWORD`, then run:
+
+```powershell
+mvn -Dtest=MySqlAuditIntegrationTest test
+```
+
 The default local profile permits unauthenticated requests only for developer convenience. The `prod` profile requires HTTP Basic authentication for every route.
 
 Every current chain-head checkpoint is HMAC-SHA-256 signed. Local development uses a non-secret development value; production requires `AUDIT_INTEGRITY_CHECKPOINT_KEY` (and optionally `AUDIT_INTEGRITY_KEY_ID`). Store the production key in a secret manager, never in source control. This detects database-only checkpoint tampering but is not a substitute for externally immutable checkpoints.
