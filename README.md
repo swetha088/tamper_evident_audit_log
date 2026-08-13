@@ -75,6 +75,8 @@ Override the count with `--audit.performance.event-count=5000` when invoking the
 
 `mvn verify` enforces Java/Maven versions, code formatting, the 85% coverage gate, tests, and a CycloneDX SBOM under `target/`. GitHub Actions repeats that gate for pushes and pull requests; pull requests also receive GitHub dependency review and Dependabot updates Maven and GitHub Action dependencies weekly.
 
+In the `prod` profile, retention is scheduled hourly by default. Set `AUDIT_RETENTION_SCHEDULER_ENABLED=false` to disable it or `AUDIT_RETENTION_SCHEDULER_CRON` to provide an approved Quartz cron expression. Local development leaves the scheduler disabled.
+
 Example write request:
 
 ```powershell

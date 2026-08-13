@@ -22,6 +22,10 @@ audit:
     username: ${AUDIT_SECURITY_USERNAME}
     password: ${AUDIT_SECURITY_PASSWORD}
     roles: ${AUDIT_SECURITY_ROLES:AUDIT_READER,AUDIT_WRITER,AUDIT_PRIVACY_ADMIN,AUDIT_RETENTION_ADMIN}
+  retention:
+    scheduler:
+      enabled: ${AUDIT_RETENTION_SCHEDULER_ENABLED:true}
+      cron: ${AUDIT_RETENTION_SCHEDULER_CRON:0 0 * * * *}
 
 springdoc:
   api-docs:
