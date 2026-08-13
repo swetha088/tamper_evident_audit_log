@@ -2,7 +2,7 @@ openapi: 3.1.0
 info:
   title: Tamper-Evident Audit Log API
   version: 0.1.0
-  description: Prototype API. Authentication and authorization are intentionally out of scope.
+  description: Prototype API. The local profile permits access; the production profile requires HTTP Basic authentication.
 servers:
   - url: http://localhost:8080
 paths:
@@ -66,14 +66,13 @@ paths:
         '200': { description: Redacted event, content: { application/json: { schema: { $ref: '#/components/schemas/AuditEvent' } } } }
   /audit/retention/run:
     post:
-      summary: Soft-archive active records before a cutoff
+      summary: Soft-archive non-archived records before an optional cutoff
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [cutoff]
               properties:
                 cutoff: { type: string, format: date-time }
                 policy: { type: string }
@@ -89,6 +88,10 @@ paths:
       responses:
         '200': { description: Client account access report }
 components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
   parameters:
     actorId: { name: actorId, in: query, schema: { type: string } }
     resourceType: { name: resourceType, in: query, schema: { type: string } }

@@ -37,8 +37,8 @@ Regulators need to audit access to client account data.
 
 ### Working assumption for this prototype
 
-The service records every attempted client-account data read with actor ID, client-account resource ID, UTC server timestamp, authorization outcome, request/correlation ID, source application, and optional reason code. Reports are limited to authorized operators and return a filtered export for a specified client account and time range. Authentication/authorization integration, report delivery workflow, legal holds, and regulatory record-layout certification are documented as out of scope.
+The service records every attempted client-account data read with actor ID, client-account resource ID, UTC server timestamp, authorization outcome, request/correlation ID, source application, and optional reason code. Reports return `CLIENT_DATA_READ` records for a specified client account and time range. The local profile permits access for developer convenience; the production profile requires HTTP Basic authentication with environment-supplied credentials. Enterprise identity-provider integration, report delivery workflow, legal holds, and regulatory record-layout certification remain out of scope.
 
 ### Scope boundary
 
-The implementation will provide the audit-data primitives and an API-level reporting/export path. It will not claim to be a complete compliance reporting platform or an authorization system.
+The implementation provides audit-data primitives, an API-level reporting/export path, and a minimal production authentication boundary. It does not claim to be a complete compliance reporting platform or enterprise authorization system.

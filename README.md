@@ -2,7 +2,7 @@
 
 A production-minded prototype of an append-only audit log service. The service will record security-relevant events, make direct data-store tampering detectable with a cryptographic hash chain, and provide query, verification, retention/redaction, and verifiable-export capabilities.
 
-> Status: the Spring Boot core is implemented (append, query, verification, redaction, and soft archival). Verifiable export, compliance reporting, production security, and the final hardening work are being delivered in incremental commits.
+> Status: the complete prototype scope is implemented: append/query/verification, redaction/retention, verifiable export, client-account reporting, and profile-specific security. Production deployment hardening remains documented as follow-up work.
 
 ## Goals
 
@@ -32,7 +32,7 @@ mvn test
 mvn spring-boot:run
 ```
 
-The service listens on `http://localhost:8080` and persists a local H2 database under `data/`. The H2 URL runs in PostgreSQL compatibility mode to reduce local/production differences.
+The service listens on `http://localhost:8080` and persists a local H2 database under `data/`. The H2 URL runs in MySQL compatibility mode to reduce local/production differences.
 
 Interactive API documentation is available at `http://localhost:8080/swagger-ui.html` after startup.
 

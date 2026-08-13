@@ -12,7 +12,7 @@ Verification API -> verifier -> ordered event rows -> integrity report
 Export API       -> export builder -> records + chain metadata/proofs
 ```
 
-## Event record model (planned)
+## Event record model
 
 | Field | Purpose |
 | --- | --- |

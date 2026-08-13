@@ -2,6 +2,10 @@ package com.schwab.interview.audit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.schwab.interview.audit.dto.AuditDtos.AppendEventRequest;
 import com.schwab.interview.audit.dto.AuditDtos.RedactionRequest;
@@ -11,10 +15,13 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
 
-@SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:audit-test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1")
+@SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:audit-test;MODE=MySQL;DB_CLOSE_DELAY=-1")
+@AutoConfigureMockMvc
 @Transactional
 class AuditLogFacadeTest {
     @Autowired
@@ -25,6 +32,9 @@ class AuditLogFacadeTest {
 
     @Autowired
     ObjectMapper json;
+
+    @Autowired
+    MockMvc mockMvc;
 
     @Test
     void detectsTampering() throws Exception {
@@ -121,5 +131,28 @@ class AuditLogFacadeTest {
         assertThat(facade.query(null, null, null, null, null, null, null, 10).items().getFirst().status())
                 .isEqualTo(com.schwab.interview.audit.entity.AuditEventEntity.Status.ARCHIVED);
         assertThat(facade.verify().intact()).isTrue();
+    }
+
+    @Test
+    void localHttpApiAcceptsAppendAndVerificationWithoutCredentials() throws Exception {
+        mockMvc.perform(post("/audit/events")
+                        .contentType("application/json")
+                        .content("""
+                                {"eventType":"USER_LOGIN","actorId":"alice","resourceType":"ACCOUNT",
+                                "resourceId":"one","payload":{"outcome":"SUCCESS"}}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.eventType").value("USER_LOGIN"));
+
+        mockMvc.perform(get("/audit/verify"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.intact").value(true));
+    }
+
+    @Test
+    void exportHttpApiRejectsMissingSelector() throws Exception {
+        mockMvc.perform(get("/audit/export"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("INVALID_REQUEST"));
     }
 }

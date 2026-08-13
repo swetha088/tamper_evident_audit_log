@@ -1,6 +1,6 @@
 # Draft API Contract
 
-This is an implementation-neutral contract baseline. The final implementation will publish an executable OpenAPI specification with exact schemas, status codes, and examples.
+This contract describes the implemented prototype. The executable OpenAPI definition is `docs/openapi.yaml`.
 
 ## `POST /audit/events`
 
@@ -47,9 +47,9 @@ When broken, `firstViolation` includes at least the sequence/event identifier an
 
 Exports a self-contained, verifiable bundle. Exactly one of `actorId` or `resourceId` is required. An optional time range may narrow results.
 
-The bundle includes selected records, their sequence/hash fields, chain context sufficient to establish their original positions, export format version, and the verification algorithm/canonicalization version. The final design will specify whether it emits a contiguous chain segment, signed checkpoints, or inclusion proofs for non-contiguous filtered results.
+The bundle includes selected records, their sequence/hash fields, a canonical protected payload representation for hash recomputation, chain context sufficient to establish their original positions, export format version, and the verification algorithm/canonicalization version.
 
-The prototype includes `chainWitnesses` for every row in the chain, with the canonical protected hash input for each. This favors independent verification and clarity over export size; it is not an efficient production design for long histories.
+The prototype includes `chainWitnesses` for every row in the chain and canonical protected representations for selected records. This favors independent verification and clarity over export size; it is not an efficient production design for long histories.
 
 ## `GET /audit/reports/client-account-access`
 
@@ -62,10 +62,6 @@ Redacts one or more previously declared sensitive payload paths. Request fields 
 ## `POST /audit/retention/run`
 
 Runs the prototype soft-archival policy. Request fields are `cutoff` (UTC ISO-8601 timestamp) and optional `policy`. It marks eligible active rows `ARCHIVED` while retaining their full rows and hashes.
-
-## `GET /audit/reports/client-account-access`
-
-Returns client-account audit events for `clientAccountId` and optional `from`/`to` timestamps. This implements the constrained Scenario C reporting assumption; it is not a regulator-ready report-delivery system.
 
 ## Error model and controls
 
