@@ -17,6 +17,9 @@ spring:
 server:
   error:
     include-message: never
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
 
 ---
 spring:
