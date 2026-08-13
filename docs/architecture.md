@@ -23,7 +23,7 @@ Export API       -> export builder -> records + chain metadata/proofs
 | `recordedAt` | Server-assigned UTC timestamp and audit ordering time. |
 | `previousHash` | Hash of the preceding protected chain entry or a defined genesis hash. |
 | `contentHash` | SHA-256 of canonical protected content, including `previousHash`. |
-| `status` | Active or archived state; archive metadata is retained. |
+| `status` | Active, redacted, or archived lifecycle state; lifecycle metadata is retained. |
 
 ## Hash-chain design principles
 
@@ -31,13 +31,13 @@ Export API       -> export builder -> records + chain metadata/proofs
 - The content hash includes the event identity, immutable event data, canonical timestamp, sequence, prior hash, and redaction commitment metadata.
 - The genesis `previousHash` is a documented fixed 64-hex-character value (all zeroes unless the implementation records a versioned alternative).
 - A database transaction or equivalent serialization mechanism must prevent concurrent writers from receiving the same predecessor.
-- Verification checks sequence continuity, expected previous hash, recomputed content hash, and valid archive/redaction metadata; it stops and reports the first failure.
+- Verification checks ordered hash linkage and recomputed content hashes; it stops and reports the first failure. Database primary-key values may have ordinary gaps after rolled-back transactions, so the service does not treat such gaps as integrity failures.
 
 ## Retention and redaction direction
 
-Physical deletion of an ordinary chained row would sever the chain. The preferred design is to retain a compact, immutable archive/tombstone commitment in the primary chain: original sequence, original hash, archive timestamp/policy/version, and an authenticated reference to the archived record. Verification treats this known record type as valid rather than skipping it.
+Physical deletion of an ordinary chained row would sever the chain. This prototype therefore uses soft archival: the complete chained row stays in the primary store and only its lifecycle metadata changes to `ARCHIVED`, with the archive timestamp and policy retained. The hash covers immutable event content and is deliberately independent of this lifecycle metadata, so a legitimate archive transition cannot cause a false verification failure. A production archive-to-cold-storage workflow would retain an immutable archive/tombstone commitment and authenticated external reference.
 
-For redaction, store sensitive cleartext separately from the chain-protected audit record and place a salted cryptographic commitment to each protected sensitive value in the record. Redaction destroys or replaces only the separately stored value while retaining the commitment and an immutable redaction certificate (field path, time, authority, and reason) in the protected chain representation. This proves the history changed only through the defined redaction mechanism, but does not make the original value recoverable.
+For redaction, this prototype hashes a salted commitment for each declared sensitive payload path into the chain-protected representation. The live payload initially retains the value. A redaction replaces that value with `[REDACTED]` and records a certificate (field path, time, authority, and reason); verification then uses the retained commitment rather than the discarded cleartext. The certificate is lifecycle metadata rather than chain content in this prototype, a limitation that must be addressed with a separately chained redaction event or signature in production. This proves the core history remains intact, but does not make the original value recoverable.
 
 This design will be finalized against the selected data model before code is written; redaction is high-impact and requires explicit engineer sign-off.
 

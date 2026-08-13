@@ -23,6 +23,7 @@
 | Archive process causes false integrity failures | Preserve an authenticated archive boundary/tombstone and test it end to end. |
 | Large histories make verification slow | Start with full verification for clarity; document limits and consider checkpoints/async verification. |
 | APIs expose records to unauthorized callers | Prototype authorization boundary is explicit; production integration is required before real data. |
+| H2 differs from PostgreSQL | H2 runs in PostgreSQL compatibility mode locally; validate schema, transaction behavior, and performance against PostgreSQL before production release. |
 
 ## Non-goals for the prototype
 
@@ -30,3 +31,7 @@
 - Legal or regulatory certification.
 - Multi-region replication, immutable object-store integration, key-management service integration, or external notarization.
 - Guaranteed exactly-once ingestion across external producers.
+
+## Current validation evidence
+
+On 2026-08-13, `mvn test` passed 2 Java 21 H2-backed integration tests covering direct JPA/database modification detection plus redaction and archival verification. Re-run `mvn test` before each commit or handoff.

@@ -18,13 +18,39 @@ A production-minded prototype of an append-only audit log service. The service w
 - [Execution plan](docs/execution-plan.md)
 - [Architecture and design decisions](docs/architecture.md)
 - [Draft API contract](docs/api-contract.md)
+- [OpenAPI definition](docs/openapi.yaml)
 - [Validation, security, and risks](docs/validation-and-risks.md)
 - [AI usage traceability](docs/ai-usage-log.md)
 - [Final engineering summary](docs/final-engineering-summary.md)
 
-## Planned local setup
+## Local setup
 
-Implementation language, framework, persistence choice, and exact commands will be recorded here once selected. The completed project will include one-command local startup, API examples, and commands for all quality gates.
+Prerequisites: Java 21 and Maven 3.9+.
+
+```powershell
+mvn test
+mvn spring-boot:run
+```
+
+The service listens on `http://localhost:8080` and persists a local H2 database under `data/`. The H2 URL runs in PostgreSQL compatibility mode to reduce local/production differences.
+
+For production, use the `prod` profile with a PostgreSQL JDBC URL and credentials:
+
+```powershell
+$env:SPRING_PROFILES_ACTIVE='prod'
+$env:AUDIT_DB_URL='jdbc:postgresql://host:5432/audit_log'
+$env:AUDIT_DB_USERNAME='audit_app'
+$env:AUDIT_DB_PASSWORD='replace-with-a-secret-manager-value'
+mvn spring-boot:run
+```
+
+Example write request:
+
+```powershell
+Invoke-RestMethod -Method Post http://localhost:8080/audit/events -ContentType 'application/json' -Body '{"eventType":"CLIENT_DATA_READ","actorId":"advisor-7","resourceType":"CLIENT_ACCOUNT","resourceId":"acct-42","payload":{"authorizationOutcome":"ALLOW","requestId":"r-1","sourceApplication":"portal"}}'
+```
+
+Then inspect integrity with `Invoke-RestMethod http://localhost:8080/audit/verify`.
 
 ## Repository conventions
 
